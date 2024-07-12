@@ -34,7 +34,7 @@ extern "C" {
 
 
 
-std::vector<FFmpegPacket> demux_all_packets(std::string input_url, int limit_count = INT_MAX)
+std::vector<FFmpegPacket> demux_all_packets(std::string input_url, int limit_packets = INT_MAX)
 {
 	std::vector<FFmpegPacket> frames_queue;
 
@@ -43,24 +43,24 @@ std::vector<FFmpegPacket> demux_all_packets(std::string input_url, int limit_cou
 		return frames_queue;
 	}
 
-	for (int i = 0; i < limit_count; i++) {
+	for (int i = 0; i < limit_packets; i++) {
 		// demux
-		FFmpegPacket es_packet = demux.read_frame();
-		if (es_packet.is_null()) {
+		FFmpegPacket packet = demux.read_frame();
+		if (packet.is_null()) {
 			break;
 		}
 
-		frames_queue.push_back(es_packet);
+		frames_queue.push_back(packet);
 	}
 
 	return frames_queue;
 }
 
 
-double transcode(int task_id, std::vector<FFmpegPacket> &frames_queue, std::string input_codec, int input_width, int input_height, std::string output_codec, int output_width, int output_height, int64_t output_bitrate) {
+double transcode1(int task_id, std::vector<FFmpegPacket> &frames_queue, std::string input_codec, int input_width, int input_height, std::string output_codec, int output_width, int output_height, int64_t output_bitrate) {
 	SPDLOG_INFO(
-		"#{:2d}# transcode frames={} input_codec={} input_width={} input_height={} output_codec={} output_width={} output_height={} output_bitrate={}",
-		task_id, frames_queue.size(), input_codec, input_width, input_height, output_codec, output_width, output_height, output_bitrate
+		"#{:2d}# {} frames={} input_codec={} input_width={} input_height={} output_codec={} output_width={} output_height={} output_bitrate={}",
+		task_id, __FUNCTION__, frames_queue.size(), input_codec, input_width, input_height, output_codec, output_width, output_height, output_bitrate
 	);
 
 	FFmpegDecode decoder(input_codec);
@@ -82,12 +82,15 @@ double transcode(int task_id, std::vector<FFmpegPacket> &frames_queue, std::stri
 	TimeIt ti_task;
 	TimeIt ti_step;
 	size_t frames = frames_queue.size();
-	MovingAverage ma_gop_decode(50);
-	MovingAverage ma_all_decode(300);
-	MovingAverage ma_gop_scale(50);
-	MovingAverage ma_all_scale(300);
-	MovingAverage ma_gop_encode(50);
-	MovingAverage ma_all_encode(300);
+	MovingAverage ma_decode_50frames(50);
+	MovingAverage ma_decode_200gops(200);
+	Percentile percentile_decode;
+	MovingAverage ma_scale_50frames(50);
+	MovingAverage ma_scale_200gops(200);
+	Percentile percentile_scale;
+	MovingAverage ma_encode_50frames(50);
+	MovingAverage ma_encode_200gops(200);
+	Percentile percentile_encode;
 
 	int index = 1;
 	for (auto i = 0; i < frames_queue.size(); i++) {
@@ -104,8 +107,9 @@ double transcode(int task_id, std::vector<FFmpegPacket> &frames_queue, std::stri
 		}
 
 		double decode_elasped_ms = ti_step.elapsed_milliseconds();
-		ma_gop_decode.add(decode_elasped_ms);
-		ma_all_decode.add(ma_gop_decode.calc());
+		ma_decode_50frames.add(decode_elasped_ms);
+		ma_decode_200gops.add(ma_decode_50frames.calc());
+		percentile_decode.add(decode_elasped_ms);
 		ti_step.reset();
 
 		// scale
@@ -118,8 +122,9 @@ double transcode(int task_id, std::vector<FFmpegPacket> &frames_queue, std::stri
 		yuv_frame.free();
 
 		double scale_elasped_ms = ti_step.elapsed_milliseconds();
-		ma_gop_scale.add(scale_elasped_ms);
-		ma_all_scale.add(ma_gop_scale.calc());
+		ma_scale_50frames.add(scale_elasped_ms);
+		ma_scale_200gops.add(ma_scale_50frames.calc());
+		percentile_scale.add(scale_elasped_ms);
 		ti_step.reset();
 
 		// encode
@@ -139,17 +144,24 @@ double transcode(int task_id, std::vector<FFmpegPacket> &frames_queue, std::stri
 		encoded_es_packet.free();
 
 		double encode_elasped_ms = ti_step.elapsed_milliseconds();
-		ma_gop_encode.add(encode_elasped_ms);
-		ma_all_encode.add(ma_gop_encode.calc());
+		ma_encode_50frames.add(encode_elasped_ms);
+		ma_encode_200gops.add(ma_encode_50frames.calc());
+		percentile_encode.add(encode_elasped_ms);
 		ti_step.reset();
 
 		if (0 == (i + 1) % 500) {
 			double progress = 100.0 * i / frames;
-			SPDLOG_INFO("#{:2d}# progress: {:.2f}%, ma_all_decode: {:.2f} ms/frame, ma_all_scale: {:.2f} ms/frame, ma_all_encode: {:.2f} ms/frame", task_id, progress, ma_all_decode.calc(), ma_all_scale.calc(), ma_all_encode.calc());
+			SPDLOG_INFO(
+				"#{:2d}# progress: {:.2f}%, ma_decode_200gops: {:.2f} (90%th={:.2f}) ms/frame, ma_scale_200gops: {:.2f} (90%th={:.2f}) ms/frame, ma_encode_200gops: {:.2f} (90%th={:.2f}) ms/frame",
+				task_id, progress, ma_decode_200gops.calc(), percentile_decode.calc(0.9), ma_scale_200gops.calc(), percentile_scale.calc(0.9), ma_encode_200gops.calc(), percentile_encode.calc(0.9)
+			);
 		}
 		else if (0 == (i + 1) % 250) {
 			double progress = 100.0 * i / frames;
-			SPDLOG_INFO("#{:2d}# progress: {:.2f}%, ma_gop_decode: {:.2f} ms/frame, ma_gop_scale: {:.2f} ms/frame, ma_gop_encode: {:.2f} ms/frame", task_id, progress, ma_gop_decode.calc(), ma_gop_scale.calc(), ma_gop_encode.calc());
+			SPDLOG_INFO(
+				"#{:2d}# progress: {:.2f}%, ma_decode_50frames: {:.2f} (90%th={:.2f}) ms/frame, ma_scale_50frames: {:.2f} (90%th={:.2f}) ms/frame, ma_encode_50frames: {:.2f} (90%th={:.2f}) ms/frame",
+				task_id, progress, ma_decode_50frames.calc(), percentile_decode.calc(0.9), ma_scale_50frames.calc(), percentile_scale.calc(0.9), ma_encode_50frames.calc(), percentile_encode.calc(0.9)
+			);
 		}
 	}
 
@@ -157,8 +169,131 @@ double transcode(int task_id, std::vector<FFmpegPacket> &frames_queue, std::stri
 	double task_elasped_ms = ti_task.elapsed_milliseconds();
 	double speed = expect_ms / task_elasped_ms;
 
+	SPDLOG_INFO(
+		"#{:2d}# progress: 100.00%, ma_decode_200gops: {:.2f} (90%th={:.2f}) ms/frame, ma_scale_200gops: {:.2f} (90%th={:.2f}) ms/frame, ma_encode_200gops: {:.2f} (90%th={:.2f}) ms/frame",
+		task_id, ma_decode_200gops.calc(), percentile_decode.calc(0.9), ma_scale_200gops.calc(), percentile_scale.calc(0.9), ma_encode_200gops.calc(), percentile_encode.calc(0.9)
+	);
 
-	SPDLOG_INFO("#{:2d}# progress: 100.00%, ma_all_decode: {:.2f} ms/frame, ma_all_scale: {:.2f} ms/frame, ma_all_encode: {:.2f} ms/frame, speed: {:.2f}x", task_id, ma_all_decode.calc(), ma_all_scale.calc(), ma_all_encode.calc(), speed);
+	return speed;
+}
+
+
+double transcode2(int task_id, std::vector<FFmpegPacket> &frames_queue, std::string input_codec, int input_width, int input_height, std::string output_codec, int output_width, int output_height, int64_t output_bitrate) {
+	SPDLOG_INFO(
+		"#{:2d}# {} frames={} input_codec={} input_width={} input_height={} output_codec={} output_width={} output_height={} output_bitrate={}",
+		task_id, __FUNCTION__, frames_queue.size(), input_codec, input_width, input_height, output_codec, output_width, output_height, output_bitrate
+	);
+
+	FFmpegDecode decoder(input_codec);
+	if (!decoder.setup()) {
+		return -1;
+	}
+
+	FFmpegScale scaler(input_width, input_height, (int)AV_PIX_FMT_YUV420P, output_width, output_height, (int)AV_PIX_FMT_YUV420P);
+	if (!scaler.setup()) {
+		return -2;
+	}
+
+	FFmpegEncode encoder(output_codec, output_width, output_height, output_bitrate, (int)AV_PIX_FMT_YUV420P);
+	if (!encoder.setup()) {
+		return -3;
+	}
+
+	// statics
+	TimeIt ti_task;
+	TimeIt ti_step;
+	size_t frames = frames_queue.size();
+	MovingAverage ma_decode_50frames(50);
+	MovingAverage ma_decode_200gops(200);
+	Percentile percentile_decode;
+	MovingAverage ma_scale_50frames(50);
+	MovingAverage ma_scale_200gops(200);
+	Percentile percentile_scale;
+	MovingAverage ma_encode_50frames(50);
+	MovingAverage ma_encode_200gops(200);
+	Percentile percentile_encode;
+
+	int index = 1;
+	for (auto i = 0; i < frames_queue.size(); i++) {
+		ti_step.reset();
+
+		// decode
+		if (!decoder.send_packet(frames_queue[i])) {
+			break;
+		}
+
+		FFmpegFrame yuv_frame = decoder.receive_frame();
+		if (yuv_frame.is_null()) {
+			break;
+		}
+
+		double decode_elasped_ms = ti_step.elapsed_milliseconds();
+		ma_decode_50frames.add(decode_elasped_ms);
+		ma_decode_200gops.add(ma_decode_50frames.calc());
+		percentile_decode.add(decode_elasped_ms);
+		ti_step.reset();
+
+		// scale
+		FFmpegFrame scaled_yuv_frame = scaler.scale(yuv_frame);
+		if (scaled_yuv_frame.is_null()) {
+			break;
+		}
+
+		// free decoed frame
+		yuv_frame.free();
+
+		double scale_elasped_ms = ti_step.elapsed_milliseconds();
+		ma_scale_50frames.add(scale_elasped_ms);
+		ma_scale_200gops.add(ma_scale_50frames.calc());
+		percentile_scale.add(scale_elasped_ms);
+		ti_step.reset();
+
+		// encode
+		if (!encoder.send_frame(scaled_yuv_frame)) {
+			break;
+		}
+
+		// free scaled frame
+		scaled_yuv_frame.free();
+
+		FFmpegPacket encoded_es_packet = encoder.receive_packet();
+		if (encoded_es_packet.is_null()) {
+			break;
+		}
+
+		// free encoed frame
+		encoded_es_packet.free();
+
+		double encode_elasped_ms = ti_step.elapsed_milliseconds();
+		ma_encode_50frames.add(encode_elasped_ms);
+		ma_encode_200gops.add(ma_encode_50frames.calc());
+		percentile_encode.add(encode_elasped_ms);
+		ti_step.reset();
+
+		if (0 == (i + 1) % 500) {
+			double progress = 100.0 * i / frames;
+			SPDLOG_INFO(
+				"#{:2d}# progress: {:.2f}%, ma_decode_200gops: {:.2f} (90%th={:.2f}) ms/frame, ma_scale_200gops: {:.2f} (90%th={:.2f}) ms/frame, ma_encode_200gops: {:.2f} (90%th={:.2f}) ms/frame",
+				task_id, progress, ma_decode_200gops.calc(), percentile_decode.calc(0.9), ma_scale_200gops.calc(), percentile_scale.calc(0.9), ma_encode_200gops.calc(), percentile_encode.calc(0.9)
+			);
+		}
+		else if (0 == (i + 1) % 250) {
+			double progress = 100.0 * i / frames;
+			SPDLOG_INFO(
+				"#{:2d}# progress: {:.2f}%, ma_decode_50frames: {:.2f} (90%th={:.2f}) ms/frame, ma_scale_50frames: {:.2f} (90%th={:.2f}) ms/frame, ma_encode_50frames: {:.2f} (90%th={:.2f}) ms/frame",
+				task_id, progress, ma_decode_50frames.calc(), percentile_decode.calc(0.9), ma_scale_50frames.calc(), percentile_scale.calc(0.9), ma_encode_50frames.calc(), percentile_encode.calc(0.9)
+			);
+		}
+	}
+
+	double expect_ms = frames * 40.0;
+	double task_elasped_ms = ti_task.elapsed_milliseconds();
+	double speed = expect_ms / task_elasped_ms;
+
+	SPDLOG_INFO(
+		"#{:2d}# progress: 100.00%, ma_decode_200gops: {:.2f} (90%th={:.2f}) ms/frame, ma_scale_200gops: {:.2f} (90%th={:.2f}) ms/frame, ma_encode_200gops: {:.2f} (90%th={:.2f}) ms/frame",
+		task_id, ma_decode_200gops.calc(), percentile_decode.calc(0.9), ma_scale_200gops.calc(), percentile_scale.calc(0.9), ma_encode_200gops.calc(), percentile_encode.calc(0.9)
+	);
 
 	return speed;
 }
@@ -170,7 +305,7 @@ double transcode_multiprocessing(std::vector<FFmpegPacket> &frames_queue, int co
 
 	double total_speed = 0.0;
 	if (concurrency_threads <= 1) {
-		total_speed = transcode(0, frames_queue, input_codec, input_width, input_height, output_codec, output_width, output_height, output_bitrate);
+		total_speed = transcode1(0, frames_queue, input_codec, input_width, input_height, output_codec, output_width, output_height, output_bitrate);
 	}
 	else {
 		std::vector<std::thread> threads;
@@ -184,7 +319,7 @@ double transcode_multiprocessing(std::vector<FFmpegPacket> &frames_queue, int co
 			int task_id = i;
 			threads.emplace_back(
 				[speed_promise, task_id, &frames_queue, input_codec, input_width, input_height, output_codec, output_width, output_height, output_bitrate]() {
-					double result = transcode(task_id, frames_queue, input_codec, input_width, input_height, output_codec, output_width, output_height, output_bitrate);
+					double result = transcode1(task_id, frames_queue, input_codec, input_width, input_height, output_codec, output_width, output_height, output_bitrate);
 					speed_promise->set_value(result);
 				}
 			);

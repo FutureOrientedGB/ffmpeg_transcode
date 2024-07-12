@@ -3,6 +3,7 @@
 // c++
 #include <chrono>
 #include <list>
+#include <vector>
 
 
 
@@ -18,9 +19,9 @@ public:
 
 
 private:
-    size_t window_size;
-    std::list<double> values;
-    double sum;
+    size_t m_window_size;
+    std::list<double> m_values;
+    double m_sum;
 };
 
 
@@ -37,6 +38,24 @@ public:
 
 
 private:
-    std::chrono::time_point<std::chrono::high_resolution_clock> begin_time;
+    std::chrono::time_point<std::chrono::high_resolution_clock> m_begin_time;
 };
+
+
+
+class Percentile {
+public:
+    Percentile();
+
+    void add(double value);
+
+    double calc(double percentile);
+
+    void reset();
+
+
+private:
+    std::vector<double> m_values;
+};
+
 
