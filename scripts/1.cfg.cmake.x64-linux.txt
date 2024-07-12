@@ -1,0 +1,74 @@
+# os
+set(ENV{OS} "linux")
+
+# cpu arch
+set(ENV{ARCH} "x64")
+
+# extra
+set(ENV{EXTRA} "")
+
+# cpu arch + os + extra = triplet
+set(ENV{TRIPLET} "$ENV{ARCH}-$ENV{OS}$ENV{EXTRA}")
+
+
+# current work dir
+cmake_path(GET CMAKE_SOURCE_DIR PARENT_PATH ROOT_DIR)
+get_filename_component(PARENT_DIR "${CMAKE_CURRENT_SOURCE_DIR}" DIRECTORY)
+get_filename_component(GRANDFATHER_DIR "${PARENT_DIR}" DIRECTORY)
+
+
+# vcpkg dir
+set(VCPKG_DIR "${GRANDFATHER_DIR}/vcpkg/installed/$ENV{TRIPLET}")
+set(VCPKG_SHARE_PATH "${VCPKG_DIR}/share")
+set(VCPKG_TOOLS_PATH "${VCPKG_DIR}/tools")
+set(ENV{VCPKG_LIB_PATH} "${VCPKG_DIR}/lib")
+set(ENV{VCPKG_INCLUDE_PATH} "${VCPKG_DIR}/include")
+set(ENV{VCPKG_BIN_PATH} "${VCPKG_DIR}/bin")
+
+
+# fmt cmake config dir
+set(ENV{FMT_CMAKE_PATH} "${VCPKG_SHARE_PATH}/fmt")
+
+# spdlog cmake config dir
+set(ENV{SPDLOG_CMAKE_PATH} "${VCPKG_SHARE_PATH}/spdlog")
+
+# protobuf cmake config dir
+set(ENV{PROTOBUF_CMAKE_PATH} "${VCPKG_SHARE_PATH}/protobuf")
+
+# upb cmake config dir
+set(ENV{UPB_CMAKE_PATH} "${VCPKG_SHARE_PATH}/upb")
+
+# absl cmake config dir
+set(ENV{ABSL_CMAKE_PATH} "${VCPKG_SHARE_PATH}/absl")
+
+# c-ares cmake config dir
+set(ENV{C_ARES_CMAKE_PATH} "${VCPKG_SHARE_PATH}/c-ares")
+
+# re2 cmake config dir
+set(ENV{RE2_CMAKE_PATH} "${VCPKG_SHARE_PATH}/re2")
+
+# grpc cmake config dir
+set(ENV{GRPC_CMAKE_PATH} "${VCPKG_SHARE_PATH}/grpc")
+
+# openssl cmake config dir
+set(ENV{OPENSSL_CMAKE_PATH} "${VCPKG_SHARE_PATH}/openssl")
+
+# libevent cmake config dir
+set(ENV{LIBEVENT_CMAKE_PATH} "${VCPKG_SHARE_PATH}/libevent")
+
+# thrift cmake config dir
+set(ENV{THRIFT_CMAKE_PATH} "${VCPKG_SHARE_PATH}/thrift")
+
+# cli11 cmake config dir
+set(ENV{CLI11_CMAKE_PATH} "${VCPKG_SHARE_PATH}/cli11")
+
+
+# pkgconf bin dir
+set(ENV{PKGCONF_EXE_PATH} "${VCPKG_TOOLS_PATH}/pkgconf/pkgconf")
+set(ENV{PKGCONF_CFG_PATH} "$ENV{VCPKG_LIB_PATH}/pkgconfig")
+
+
+# output dir
+set(ENV{INSTALL_EXE_DIR} "${ROOT_DIR}/rundir/$ENV{TRIPLET}")
+set(ENV{OUTPUT_EXE_DIR} "${ROOT_DIR}/output/$ENV{TRIPLET}")
+
