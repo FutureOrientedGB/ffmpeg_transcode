@@ -9,22 +9,17 @@
 // project
 #include "ffmpeg_types.hpp"
 
-// ffmpeg
-struct AVCodec;
-struct AVCodecContext;
-
 
 
 class FFmpegEncode {
 public:
 	FFmpegEncode(std::string encoder_name, int width, int height, int64_t bitrate, int pixel_format);
-
 	~FFmpegEncode();
 
 	bool setup();
+	void teardown();
 
 	bool send_frame(FFmpegFrame &frame);
-
 	FFmpegPacket receive_packet();
 
 
@@ -37,7 +32,6 @@ private:
 
 	int m_pixel_format;
 
-	AVCodec *m_encoder;
-	AVCodecContext *m_encoder_context;
+	FFmpegCodecContext *m_codec_context;
 };
 

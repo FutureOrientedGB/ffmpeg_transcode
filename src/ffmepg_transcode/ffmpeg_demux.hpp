@@ -18,6 +18,7 @@ public:
 	~FFmpegDemux();
 
 	bool setup();
+	void teardown();
 
 	FFmpegPacket read_frame();
 

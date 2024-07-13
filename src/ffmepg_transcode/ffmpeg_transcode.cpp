@@ -41,7 +41,7 @@ extern "C" {
 
 
 
-std::map<std::string, TranscodeType> TranscodeTypeCvt::s_map_str_to_enum{
+std::map<std::string, TranscodeType> TranscodeTypeCvt::s_map_string_to_enum{
     { "decode_h264_only", TranscodeType::DecodeH264Only },
     { "decode_h265_only", TranscodeType::DecodeH265Only },
     { "h264_to_d1_h264", TranscodeType::H264ToD1H264 },
@@ -57,7 +57,7 @@ std::map<std::string, TranscodeType> TranscodeTypeCvt::s_map_str_to_enum{
 };
 
 
-std::map<TranscodeType, std::string> TranscodeTypeCvt::s_map_enum_to_str{
+std::map<TranscodeType, std::string> TranscodeTypeCvt::s_map_enum_to_string{
     { TranscodeType::DecodeH264Only, "decode_h264_only" },
     { TranscodeType::DecodeH265Only, "decode_h265_only" },
     { TranscodeType::H264ToD1H264, "h264_to_d1_h264" },
@@ -73,31 +73,31 @@ std::map<TranscodeType, std::string> TranscodeTypeCvt::s_map_enum_to_str{
 };
 
 
-TranscodeType TranscodeTypeCvt::from_str(std::string s)
+TranscodeType TranscodeTypeCvt::from_string(std::string s)
 {
-    auto iter = s_map_str_to_enum.find(s);
-    if (iter != s_map_str_to_enum.end()) {
+    auto iter = s_map_string_to_enum.find(s);
+    if (iter != s_map_string_to_enum.end()) {
         return iter->second;
     }
     return TranscodeType::Invalid;
 }
 
 
-std::string TranscodeTypeCvt::to_str(TranscodeType e)
+std::string TranscodeTypeCvt::to_string(TranscodeType e)
 {
-    auto iter = s_map_enum_to_str.find(e);
-    if (iter != s_map_enum_to_str.end()) {
+    auto iter = s_map_enum_to_string.find(e);
+    if (iter != s_map_enum_to_string.end()) {
         return iter->second;
     }
     return "";
 }
 
 
-std::string TranscodeTypeCvt::help()
+std::string TranscodeTypeCvt::support_list()
 {
     std::vector<std::string> result;
-    for (auto e = (int)TranscodeType::DecodeH264Only; e < (int)TranscodeType::AllTasks; e++) {
-        result.push_back(to_str((TranscodeType)e));
+    for (auto e = (uint8_t)TranscodeType::Invalid + 1; e <= (uint8_t)TranscodeType::AllTasks; e++) {
+        result.push_back(to_string((TranscodeType)e));
     }
     return fmt::to_string(fmt::join(result, ", "));
 }
@@ -129,17 +129,17 @@ std::vector<FFmpegPacket> demux_all_packets(std::string input_url, int limit_pac
 
 
 double FFmpegTranscode::multi_threading_test(
-    std::vector<FFmpegPacket> &frames_queue, int concurrency_threads,
+    std::vector<FFmpegPacket> &frames_queue, int concurrency,
     std::string input_codec, int input_width, int input_height,
     std::vector<std::string> output_codec, std::vector<int> output_width, std::vector<int> output_height, std::vector<int64_t> output_bitrate
 ) {
     SPDLOG_INFO(
-        "========== {} ways {} decode + {} scale + {} encode begin ==========",
-        concurrency_threads, input_codec, fmt::join(output_height, ", "), fmt::join(output_codec, ", ")
+        "========== {} threads {} decode + {} scale + {} encode begin ==========",
+        concurrency, input_codec, fmt::join(output_height, ", "), fmt::join(output_codec, ", ")
     );
 
     double total_speed = 0.0;
-    if (concurrency_threads <= 1) {
+    if (concurrency <= 1) {
         total_speed = run(0, frames_queue, input_codec, input_width, input_height, output_codec, output_width, output_height, output_bitrate);
     }
     else {
@@ -147,7 +147,7 @@ double FFmpegTranscode::multi_threading_test(
         std::vector<std::shared_ptr<std::promise<double>>> promises;
         std::vector<std::future<double>> futures;
 
-        for (int i = 0; i < concurrency_threads; ++i) {
+        for (int i = 0; i < concurrency; ++i) {
             std::shared_ptr<std::promise<double>> speed_promise = std::make_shared<std::promise<double>>();
             std::future<double> speed_future = speed_promise->get_future();
 
@@ -167,14 +167,14 @@ double FFmpegTranscode::multi_threading_test(
             thread.join();
         }
 
-        for (int i = 0; i < concurrency_threads; ++i) {
+        for (int i = 0; i < concurrency; ++i) {
             total_speed += futures[i].get();
         }
     }
 
     SPDLOG_INFO(
-        "========== {} ways {} decode + {} scale + {} encode end with {:.2f}x speed)==========",
-        concurrency_threads, input_codec, fmt::join(output_height, ", "), fmt::join(output_codec, ", ")
+        "========== {} threads {} decode + {} scale + {} encode end with {:.2f}x speed)==========",
+        concurrency, input_codec, fmt::join(output_height, ", "), fmt::join(output_codec, ", ")
     );
 
     return total_speed;

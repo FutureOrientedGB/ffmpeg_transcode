@@ -29,14 +29,14 @@ enum class TranscodeType : uint8_t {
 
 class TranscodeTypeCvt {
 public:
-	static TranscodeType from_str(std::string s);
-	static std::string to_str(TranscodeType e);
-	static std::string help();
+	static TranscodeType from_string(std::string s);
+	static std::string to_string(TranscodeType e);
+	static std::string support_list();
 
 
 private:
-	static std::map<std::string, TranscodeType> s_map_str_to_enum;
-	static std::map<TranscodeType, std::string> s_map_enum_to_str;
+	static std::map<std::string, TranscodeType> s_map_string_to_enum;
+	static std::map<TranscodeType, std::string> s_map_enum_to_string;
 };
 
 
@@ -54,7 +54,7 @@ public:
 	) = 0;
 
 	double multi_threading_test(
-		std::vector<FFmpegPacket> &frames_queue, int concurrency_threads,
+		std::vector<FFmpegPacket> &frames_queue, int concurrency,
 		std::string input_codec, int input_width, int input_height,
 		std::vector<std::string> output_codec, std::vector<int> output_width, std::vector<int> output_height, std::vector<int64_t> output_bitrate
 	);

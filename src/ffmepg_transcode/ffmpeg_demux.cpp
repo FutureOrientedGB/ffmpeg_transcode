@@ -27,13 +27,7 @@ FFmpegDemux::FFmpegDemux(std::string input_url)
 
 FFmpegDemux::~FFmpegDemux()
 {
-	if (m_format_context != nullptr) {
-		avformat_close_input(&m_format_context);
-		m_format_context = nullptr;
-	}
-	m_video_stream_index = -1;
-	m_video_stream = nullptr;
-	m_input_url.clear();
+	teardown();
 }
 
 
@@ -67,6 +61,18 @@ bool FFmpegDemux::setup() {
 	} while (false);
 
 	return true;
+}
+
+
+void FFmpegDemux::teardown()
+{
+	if (m_format_context != nullptr) {
+		avformat_close_input(&m_format_context);
+		m_format_context = nullptr;
+	}
+	m_video_stream_index = -1;
+	m_video_stream = nullptr;
+	m_input_url.clear();
 }
 
 

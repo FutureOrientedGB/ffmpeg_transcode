@@ -6,10 +6,6 @@
 // project
 #include "ffmpeg_types.hpp"
 
-// ffmpeg
-struct AVCodec;
-struct AVCodecContext;
-
 
 
 class FFmpegDecode {
@@ -18,6 +14,7 @@ public:
 	~FFmpegDecode();
 
 	bool setup();
+	void teardown();
 
 	bool send_packet(FFmpegPacket &packet);
 	FFmpegFrame receive_frame();
@@ -26,7 +23,6 @@ public:
 private:
 	std::string m_decoder_name;
 
-	AVCodec *m_decoder;
-	AVCodecContext *m_decoder_context;
+	FFmpegCodecContext *m_codec_context;
 };
 

@@ -17,54 +17,43 @@ extern "C" {
 
 FFmpegDecode::FFmpegDecode(std::string decoder_name)
 	: m_decoder_name(decoder_name)
-	, m_decoder(nullptr)
-	, m_decoder_context(nullptr)
+	, m_codec_context(nullptr)
 {
 }
 
 
 FFmpegDecode::~FFmpegDecode()
 {
-	if (m_decoder_context != nullptr) {
-		avcodec_close(m_decoder_context);
-		avcodec_free_context(&m_decoder_context);
-		m_decoder_context = nullptr;
-	}
-	m_decoder = nullptr;
-	m_decoder_name.clear();
+	teardown();
 }
 
 
 bool FFmpegDecode::setup() {
-	do {
-		m_decoder = (AVCodec *)avcodec_find_decoder_by_name(m_decoder_name.c_str());
-		if (nullptr == m_decoder) {
-			SPDLOG_ERROR("avcodec_find_decoder_by_name error, m_decoder_name: {}", m_decoder_name);
-			return false;
-		}
+	m_codec_context = new FFmpegCodecContext("", m_decoder_name);
+	if (m_codec_context->is_null()) {
+		return false;
+	}
 
-		m_decoder_context = avcodec_alloc_context3(m_decoder);
-		if (!m_decoder_context) {
-			SPDLOG_ERROR("avcodec_alloc_context3 error, m_decoder_name: {}", m_decoder_name);
-			return false;
-		}
-		
-		AVDictionary *options = nullptr;
-		av_dict_set(&options, "threads", "1", 0);
-
-		int code = avcodec_open2(m_decoder_context, m_decoder, &options);
-		if (code < 0) {
-			SPDLOG_ERROR("avcodec_open2 error, code: {}, msg: {}, m_decoder_name: {}", code, ffmpeg_error_str(code), m_decoder_name);
-			return false;
-		}
-	} while (false);
+	if (!m_codec_context->open({ {"threads", "1"} })) {
+		return false;
+	}
 
 	return true;
 }
 
 
+void FFmpegDecode::teardown()
+{
+	if (m_codec_context != nullptr) {
+		delete m_codec_context;
+		m_codec_context = nullptr;
+	}
+	m_decoder_name.clear();
+}
+
+
 bool FFmpegDecode::send_packet(FFmpegPacket &packet) {
-	int code = avcodec_send_packet(m_decoder_context, packet.raw_ptr());
+	int code = avcodec_send_packet(m_codec_context->raw_ptr(), packet.raw_ptr());
 	if (code < 0) {
 		SPDLOG_WARN("avcodec_send_packet error, code: {}, msg: {}", code, ffmpeg_error_str(code));
 		return false;
@@ -84,7 +73,7 @@ FFmpegFrame FFmpegDecode::receive_frame() {
 			break;
 		}
 
-		code = avcodec_receive_frame(m_decoder_context, frame.raw_ptr());
+		code = avcodec_receive_frame(m_codec_context->raw_ptr(), frame.raw_ptr());
 		if (code == AVERROR(EAGAIN) || code == AVERROR_EOF) {
 			break;
 		}

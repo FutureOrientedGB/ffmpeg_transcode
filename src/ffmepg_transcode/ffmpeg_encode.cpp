@@ -22,80 +22,69 @@ FFmpegEncode::FFmpegEncode(std::string encoder_name, int width, int height, int6
 	, m_height(height)
 	, m_bitrate(bitrate)
 	, m_pixel_format(pixel_format)
-	, m_encoder(nullptr)
-	, m_encoder_context(nullptr)
+	, m_codec_context(nullptr)
 {
-
 }
 
 
 FFmpegEncode::~FFmpegEncode()
 {
-	if (m_encoder_context != nullptr) {
-		avcodec_close(m_encoder_context);
-		avcodec_free_context(&m_encoder_context);
-		m_encoder_context = nullptr;
-	}
-	m_encoder = nullptr;
-	m_pixel_format = AV_PIX_FMT_NONE;
-	m_encoder_name.clear();
+	teardown();
 }
 
 
 bool FFmpegEncode::setup() {
-	do {
-		m_encoder = (AVCodec *)avcodec_find_encoder_by_name(m_encoder_name.c_str());
-		if (nullptr == m_encoder) {
-			SPDLOG_ERROR("avcodec_find_encoder_by_name error, m_encoder_name: {}", m_encoder_name);
-			return false;
-		}
+	m_codec_context = new FFmpegCodecContext(m_encoder_name, "");
+	if (m_codec_context->is_null()) {
+		return false;
+	}
 
-		m_encoder_context = avcodec_alloc_context3(m_encoder);
-		if (!m_encoder_context) {
-			SPDLOG_ERROR("avcodec_alloc_context3 error, m_encoder_name: {}", m_encoder_name);
-			return false;
-		}
+	m_codec_context->raw_ptr()->pix_fmt = (enum AVPixelFormat)m_pixel_format;
+	m_codec_context->raw_ptr()->width = m_width;
+	m_codec_context->raw_ptr()->height = m_height;
+	m_codec_context->raw_ptr()->time_base = { 1, 25 };
+	m_codec_context->raw_ptr()->framerate = { 1, 25 };
+	m_codec_context->raw_ptr()->bit_rate = m_bitrate;
+	m_codec_context->raw_ptr()->bit_rate_tolerance = (int)(m_bitrate / 4);
+	m_codec_context->raw_ptr()->gop_size = 50;
+	m_codec_context->raw_ptr()->max_b_frames = 0;
 
-		m_encoder_context->pix_fmt = (enum AVPixelFormat)m_pixel_format;
-		m_encoder_context->width = m_width;
-		m_encoder_context->height = m_height;
-		m_encoder_context->time_base = { 1, 25 };
-		m_encoder_context->framerate = { 1, 25 };
-		m_encoder_context->bit_rate = m_bitrate;
-		m_encoder_context->bit_rate_tolerance = (int)(m_bitrate / 4);
-		m_encoder_context->gop_size = 50;
-		m_encoder_context->max_b_frames = 0;
+	int code = 0;
+	code = av_opt_set(m_codec_context->raw_ptr()->priv_data, "preset", "ultrafast", 0);
+	if (code < 0) {
+		SPDLOG_ERROR("av_opt_set(preset, ultrafast) error, code: {}, msg: {}, m_encoder_name: {}", code, ffmpeg_error_str(code), m_encoder_name);
+	}
+	code = av_opt_set(m_codec_context->raw_ptr()->priv_data, "tune", "zerolatency", 0);
+	if (code < 0) {
+		SPDLOG_ERROR("av_opt_set(tune, zerolatency) error, code: {}, msg: {}, m_encoder_name: {}", code, ffmpeg_error_str(code), m_encoder_name);
+	}
 
-		int code = 0;
-		code = av_opt_set(m_encoder_context->priv_data, "preset", "ultrafast", 0);
-		if (code < 0) {
-			SPDLOG_ERROR("av_opt_set(preset, ultrafast) error, code: {}, msg: {}, m_encoder_name: {}", code, ffmpeg_error_str(code), m_encoder_name);
-		}
-		code = av_opt_set(m_encoder_context->priv_data, "tune", "zerolatency", 0);
-		if (code < 0) {
-			SPDLOG_ERROR("av_opt_set(tune, zerolatency) error, code: {}, msg: {}, m_encoder_name: {}", code, ffmpeg_error_str(code), m_encoder_name);
-		}
+	if (m_encoder_name == "libx265") {
+		av_opt_set(m_codec_context->raw_ptr()->priv_data, "x265-params", "threads=1", 0);
+	}
 
-		AVDictionary *options = nullptr;
-		av_dict_set(&options, "threads", "1", 0);
-
-		if (m_encoder_name == "libx265") {
-			av_opt_set(m_encoder_context->priv_data, "x265-params", "threads=1", 0);
-		}
-
-		code = avcodec_open2(m_encoder_context, m_encoder, &options);
-		if (code < 0) {
-			SPDLOG_ERROR("avcodec_open2 error, code: {}, msg: {}, m_encoder_name: {}", code, ffmpeg_error_str(code), m_encoder_name);
-			return false;
-		}
-	} while (false);
+	if (!m_codec_context->open({ {"threads", "1"} })) {
+		return false;
+	}
 
 	return true;
 }
 
 
+void FFmpegEncode::teardown()
+{
+	if (m_codec_context != nullptr) {
+		delete m_codec_context;
+		m_codec_context = nullptr;
+	}
+
+	m_pixel_format = AV_PIX_FMT_NONE;
+	m_encoder_name.clear();
+}
+
+
 bool FFmpegEncode::send_frame(FFmpegFrame &frame) {
-	int code = avcodec_send_frame(m_encoder_context, frame.raw_ptr());
+	int code = avcodec_send_frame(m_codec_context->raw_ptr(), frame.raw_ptr());
 	if (code < 0) {
 		SPDLOG_WARN("avcodec_send_frame error, code: {}, msg: {}", code, ffmpeg_error_str(code));
 		return false;
@@ -114,7 +103,7 @@ FFmpegPacket FFmpegEncode::receive_packet() {
 			break;
 		}
 
-		code = avcodec_receive_packet(m_encoder_context, packet.raw_ptr());
+		code = avcodec_receive_packet(m_codec_context->raw_ptr(), packet.raw_ptr());
 		if (code == AVERROR(EAGAIN) || code == AVERROR_EOF) {
 			break;
 		}

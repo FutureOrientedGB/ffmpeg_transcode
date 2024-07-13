@@ -29,10 +29,7 @@ FFmpegScale::FFmpegScale(int src_width, int src_height, int src_pixel_format, in
 
 FFmpegScale::~FFmpegScale()
 {
-	if (m_SwsContext != nullptr) {
-		sws_freeContext(m_SwsContext);
-		m_SwsContext = nullptr;
-	}
+	teardown();
 }
 
 
@@ -48,6 +45,15 @@ bool FFmpegScale::setup() {
 	}
 
 	return true;
+}
+
+
+void FFmpegScale::teardown()
+{
+	if (m_SwsContext != nullptr) {
+		sws_freeContext(m_SwsContext);
+		m_SwsContext = nullptr;
+	}
 }
 
 

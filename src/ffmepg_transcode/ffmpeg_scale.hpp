@@ -14,6 +14,7 @@ public:
 	~FFmpegScale();
 
 	bool setup();
+	void teardown();
 
 	FFmpegFrame scale(FFmpegFrame &frame);
 
