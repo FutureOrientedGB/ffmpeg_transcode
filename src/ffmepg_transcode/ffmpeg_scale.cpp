@@ -52,8 +52,8 @@ void FFmpegScale::teardown()
 {
 	if (m_SwsContext != nullptr) {
 		sws_freeContext(m_SwsContext);
-		m_SwsContext = nullptr;
 	}
+	m_SwsContext = nullptr;
 }
 
 

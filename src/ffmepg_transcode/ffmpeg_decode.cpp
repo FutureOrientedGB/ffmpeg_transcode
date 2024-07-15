@@ -15,9 +15,10 @@ extern "C" {
 
 
 
-FFmpegDecode::FFmpegDecode(std::string decoder_name)
-	: m_decoder_name(decoder_name)
+FFmpegDecode::FFmpegDecode(std::string codec_name, int pixel_format)
+	: m_codec_name(codec_name)
 	, m_codec_context(nullptr)
+	, m_pixel_format(pixel_format)
 {
 }
 
@@ -29,18 +30,22 @@ FFmpegDecode::~FFmpegDecode()
 
 
 bool FFmpegDecode::setup() {
-	m_codec_context = new FFmpegCodecContext("", m_decoder_name);
-	if (m_codec_context->is_null()) {
-		teardown();
-		return false;
-	}
+	do {
+		m_codec_context = new FFmpegCodecContext("", m_codec_name, m_pixel_format);
+		if (m_codec_context->is_null()) {
+			break;
+		}
 
-	if (!m_codec_context->open({ {"threads", "1"} })) {
-		teardown();
-		return false;
-	}
+		if (!m_codec_context->open({ {"threads", "1"} })) {
+			break;
+		}
 
-	return true;
+		return true;
+	} while (false);
+
+	teardown();
+
+	return false;
 }
 
 
@@ -48,9 +53,10 @@ void FFmpegDecode::teardown()
 {
 	if (m_codec_context != nullptr) {
 		delete m_codec_context;
-		m_codec_context = nullptr;
 	}
-	m_decoder_name.clear();
+	m_codec_context = nullptr;
+
+	m_codec_name.clear();
 }
 
 
@@ -67,21 +73,21 @@ bool FFmpegDecode::send_packet(FFmpegPacket &packet) {
 
 FFmpegFrame FFmpegDecode::receive_frame() {
 	int code = 0;
-
 	while (code >= 0) {
 		FFmpegFrame frame;
 		if (frame.is_null()) {
 			code = AVERROR(ENOMEM);
-			break;
+			return frame;
 		}
 
 		code = avcodec_receive_frame(m_codec_context->raw_ptr(), frame.raw_ptr());
-		if (code == AVERROR(EAGAIN) || code == AVERROR_EOF) {
-			break;
+		if (code == AVERROR(EAGAIN)) {
+			frame.need_more();
+		}
+		else if (code == AVERROR_EOF) {
 		}
 		else if (code < 0) {
 			SPDLOG_WARN("avcodec_receive_frame error, code: {}, msg: {}", code, ffmpeg_error_str(code));
-			break;
 		}
 
 		return frame;

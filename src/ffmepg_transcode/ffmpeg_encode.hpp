@@ -24,7 +24,7 @@ public:
 
 
 private:
-	std::string m_encoder_name;
+	std::string m_codec_name;
 
 	int m_width;
 	int m_height;

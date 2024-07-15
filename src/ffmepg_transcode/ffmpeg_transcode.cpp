@@ -195,6 +195,9 @@ double FFmpegDecodeOnly::run(
 		}
 
 		FFmpegFrame yuv_frame = decoder.receive_frame();
+		if (yuv_frame.does_need_more()) {
+			continue;
+		}
 		if (yuv_frame.is_null()) {
 			break;
 		}
@@ -285,6 +288,9 @@ double FFmpegTranscodeOne::run(
 		}
 
 		FFmpegFrame yuv_frame = decoder.receive_frame();
+		if (yuv_frame.does_need_more()) {
+			continue;
+		}
 		if (yuv_frame.is_null()) {
 			break;
 		}
@@ -321,11 +327,14 @@ double FFmpegTranscodeOne::run(
 		scaled_yuv_frame.free();
 
 		FFmpegPacket encoded_es_packet = encoder.receive_packet();
+		if (encoded_es_packet.does_need_more()) {
+			continue;
+		}
 		if (encoded_es_packet.is_null()) {
 			break;
 		}
 
-		// free encoed frame
+		// free encoded frame
 		encoded_es_packet.free();
 
 		// calc encode time
@@ -420,6 +429,9 @@ double FFmpegTranscodeTwo::run(
 		}
 
 		FFmpegFrame yuv_frame = decoder.receive_frame();
+		if (yuv_frame.does_need_more()) {
+			continue;
+		}
 		if (yuv_frame.is_null()) {
 			break;
 		}
@@ -431,8 +443,9 @@ double FFmpegTranscodeTwo::run(
 		percentile_decode.add(decode_elasped_ms);
 		ti_step.reset();
 
+		bool need_more1 = false;
 		thread_pool.submit(
-			[&yuv_frame, &scaler1, &encoder1]() {
+			[&yuv_frame, &scaler1, &encoder1, &need_more1]() {
 				// scale
 				FFmpegFrame scaled_yuv_frame = scaler1.scale(yuv_frame);
 				if (scaled_yuv_frame.is_null()) {
@@ -448,17 +461,21 @@ double FFmpegTranscodeTwo::run(
 				scaled_yuv_frame.free();
 
 				FFmpegPacket encoded_es_packet = encoder1.receive_packet();
+				if (encoded_es_packet.does_need_more()) {
+					need_more1 = true;
+				}
 				if (encoded_es_packet.is_null()) {
 					return;
 				}
 
-				// free encoed frame
+				// free encoded frame
 				encoded_es_packet.free();
 			}
 		);
 
+		bool need_more2 = false;
 		thread_pool.submit(
-			[&yuv_frame, &scaler2, &encoder2]() {
+			[&yuv_frame, &scaler2, &encoder2, &need_more2]() {
 				// scale
 				FFmpegFrame scaled_yuv_frame = scaler2.scale(yuv_frame);
 				if (scaled_yuv_frame.is_null()) {
@@ -474,16 +491,23 @@ double FFmpegTranscodeTwo::run(
 				scaled_yuv_frame.free();
 
 				FFmpegPacket encoded_es_packet = encoder2.receive_packet();
+				if (encoded_es_packet.does_need_more()) {
+					need_more2 = true;
+				}
 				if (encoded_es_packet.is_null()) {
 					return;
 				}
 
-				// free encoed frame
+				// free encoded frame
 				encoded_es_packet.free();
 			}
 		);
 
 		thread_pool.wait_for_tasks();
+
+		if (need_more1 || need_more2) {
+			continue;
+		}
 
 		// calc scale & decode time
 		double encode_elasped_ms = ti_step.elapsed_milliseconds();
@@ -537,7 +561,75 @@ FFmpegTranscodeFactory::~FFmpegTranscodeFactory()
 }
 
 
-FFmpegTranscode *FFmpegTranscodeFactory::create(TranscodeType t, std::string &intput_codec, std::vector<std::string> &output_codec, std::vector<int> &output_width, std::vector<int> &output_height, std::vector<int64_t> &output_bitrate) {
+
+std::string get_h264_encoder_name(bool intel_quick_sync_video, bool nvidia_video_codec, bool amd_advanced_media_framework) {
+	if (intel_quick_sync_video) {
+		return "h264_qsv";
+	}
+	else if (nvidia_video_codec) {
+		return "h264_nvenc";
+	}
+	else if (nvidia_video_codec) {
+		return "h264_amf";
+	}
+	else {
+		return "libx264";
+	}
+}
+
+
+std::string get_h265_encoder_name(bool intel_quick_sync_video, bool nvidia_video_codec, bool amd_advanced_media_framework) {
+	if (intel_quick_sync_video) {
+		return "hevc_qsv";
+	}
+	else if (nvidia_video_codec) {
+		return "hevc_nvenc";
+	}
+	else if (nvidia_video_codec) {
+		return "hevc_amf";
+	}
+	else {
+		return "libx265";
+	}
+}
+
+
+void get_h264_decoder_name(std::string &codec_name, bool intel_quick_sync_video, bool nvidia_video_codec, bool amd_advanced_media_framework) {
+	if (intel_quick_sync_video) {
+		codec_name = "h264_qsv";
+	}
+	else if (nvidia_video_codec) {
+		codec_name = "h264_cuvid";
+	}
+	else if (nvidia_video_codec) {
+		codec_name = "h264_amf";
+	}
+	else {
+		codec_name = "h264";
+	}
+}
+
+
+void get_h265_decoder_name(std::string &codec_name, bool intel_quick_sync_video, bool nvidia_video_codec, bool amd_advanced_media_framework) {
+	if (intel_quick_sync_video) {
+		codec_name = "hevc_qsv";
+	}
+	else if (nvidia_video_codec) {
+		codec_name = "hevc_cuvid";
+	}
+	else if (nvidia_video_codec) {
+		codec_name = "hevc_amf";
+	}
+	else {
+		codec_name = "hevc";
+	}
+}
+
+
+FFmpegTranscode *FFmpegTranscodeFactory::create(
+	TranscodeType t, std::string &intput_codec, std::vector<std::string> &output_codec, std::vector<int> &output_width, std::vector<int> &output_height,
+	std::vector<int64_t> &output_bitrate, bool intel_quick_sync_video, bool nvidia_video_codec, bool amd_advanced_media_framework
+) {
 	intput_codec.clear();
 	output_codec.clear();
 	output_width.clear();
@@ -550,22 +642,22 @@ FFmpegTranscode *FFmpegTranscodeFactory::create(TranscodeType t, std::string &in
 	{
 	case TranscodeType::H264DecodeOnly:
 	{
-		intput_codec = "h264";
+		get_h264_decoder_name(intput_codec, intel_quick_sync_video, nvidia_video_codec, amd_advanced_media_framework);
 		m_transcode = new FFmpegDecodeOnly();
 	}
 	break;
 
 	case TranscodeType::H265DecodeOnly:
 	{
-		intput_codec = "hevc";
+		get_h265_decoder_name(intput_codec, intel_quick_sync_video, nvidia_video_codec, amd_advanced_media_framework);
 		m_transcode = new FFmpegDecodeOnly();
 	}
 	break;
 
 	case TranscodeType::H264ToD1H264:
 	{
-		intput_codec = "h264";
-		output_codec.push_back("libx264");
+		get_h264_decoder_name(intput_codec, intel_quick_sync_video, nvidia_video_codec, amd_advanced_media_framework);
+		output_codec.push_back(get_h264_encoder_name(intel_quick_sync_video, nvidia_video_codec, amd_advanced_media_framework));
 		output_width.push_back(720);
 		output_height.push_back(480);
 		output_bitrate.push_back(1000 * 1000);
@@ -574,8 +666,8 @@ FFmpegTranscode *FFmpegTranscodeFactory::create(TranscodeType t, std::string &in
 	break;
 	case TranscodeType::H264ToCifH264:
 	{
-		intput_codec = "h264";
-		output_codec.push_back("libx264");
+		get_h264_decoder_name(intput_codec, intel_quick_sync_video, nvidia_video_codec, amd_advanced_media_framework);
+		output_codec.push_back(get_h264_encoder_name(intel_quick_sync_video, nvidia_video_codec, amd_advanced_media_framework));
 		output_width.push_back(352);
 		output_height.push_back(288);
 		output_bitrate.push_back(128 * 1000);
@@ -584,8 +676,8 @@ FFmpegTranscode *FFmpegTranscodeFactory::create(TranscodeType t, std::string &in
 	break;
 	case TranscodeType::H265ToD1H265:
 	{
-		intput_codec = "hevc";
-		output_codec.push_back("libx265");
+		get_h265_decoder_name(intput_codec, intel_quick_sync_video, nvidia_video_codec, amd_advanced_media_framework);
+		output_codec.push_back(get_h265_encoder_name(intel_quick_sync_video, nvidia_video_codec, amd_advanced_media_framework));
 		output_width.push_back(720);
 		output_height.push_back(480);
 		output_bitrate.push_back(1000 * 1000);
@@ -594,8 +686,8 @@ FFmpegTranscode *FFmpegTranscodeFactory::create(TranscodeType t, std::string &in
 	break;
 	case TranscodeType::H265ToCifH265:
 	{
-		intput_codec = "hevc";
-		output_codec.push_back("libx265");
+		get_h265_decoder_name(intput_codec, intel_quick_sync_video, nvidia_video_codec, amd_advanced_media_framework);
+		output_codec.push_back(get_h265_encoder_name(intel_quick_sync_video, nvidia_video_codec, amd_advanced_media_framework));
 		output_width.push_back(352);
 		output_height.push_back(288);
 		output_bitrate.push_back(128 * 1000);
@@ -604,8 +696,8 @@ FFmpegTranscode *FFmpegTranscodeFactory::create(TranscodeType t, std::string &in
 	break;
 	case TranscodeType::H265ToD1H264:
 	{
-		intput_codec = "hevc";
-		output_codec.push_back("libx264");
+		get_h265_decoder_name(intput_codec, intel_quick_sync_video, nvidia_video_codec, amd_advanced_media_framework);
+		output_codec.push_back(get_h264_encoder_name(intel_quick_sync_video, nvidia_video_codec, amd_advanced_media_framework));
 		output_width.push_back(720);
 		output_height.push_back(480);
 		output_bitrate.push_back(1000 * 1000);
@@ -614,8 +706,8 @@ FFmpegTranscode *FFmpegTranscodeFactory::create(TranscodeType t, std::string &in
 	break;
 	case TranscodeType::H265ToCifH264:
 	{
-		intput_codec = "hevc";
-		output_codec.push_back("libx264");
+		get_h265_decoder_name(intput_codec, intel_quick_sync_video, nvidia_video_codec, amd_advanced_media_framework);
+		output_codec.push_back(get_h264_encoder_name(intel_quick_sync_video, nvidia_video_codec, amd_advanced_media_framework));
 		output_width.push_back(352);
 		output_height.push_back(288);
 		output_bitrate.push_back(128 * 1000);
@@ -625,9 +717,9 @@ FFmpegTranscode *FFmpegTranscodeFactory::create(TranscodeType t, std::string &in
 
 	case TranscodeType::H264ToD1CifH264:
 	{
-		intput_codec = "h264";
-		output_codec.push_back("libx264");
-		output_codec.push_back("libx264");
+		get_h264_decoder_name(intput_codec, intel_quick_sync_video, nvidia_video_codec, amd_advanced_media_framework);
+		output_codec.push_back(get_h264_encoder_name(intel_quick_sync_video, nvidia_video_codec, amd_advanced_media_framework));
+		output_codec.push_back(get_h264_encoder_name(intel_quick_sync_video, nvidia_video_codec, amd_advanced_media_framework));
 		output_width.push_back(720);
 		output_height.push_back(480);
 		output_width.push_back(352);
@@ -639,9 +731,9 @@ FFmpegTranscode *FFmpegTranscodeFactory::create(TranscodeType t, std::string &in
 	break;
 	case TranscodeType::H265ToD1CifH265:
 	{
-		intput_codec = "hevc";
-		output_codec.push_back("libx265");
-		output_codec.push_back("libx265");
+		get_h265_decoder_name(intput_codec, intel_quick_sync_video, nvidia_video_codec, amd_advanced_media_framework);
+		output_codec.push_back(get_h265_encoder_name(intel_quick_sync_video, nvidia_video_codec, amd_advanced_media_framework));
+		output_codec.push_back(get_h265_encoder_name(intel_quick_sync_video, nvidia_video_codec, amd_advanced_media_framework));
 		output_width.push_back(720);
 		output_height.push_back(480);
 		output_width.push_back(352);
@@ -653,9 +745,9 @@ FFmpegTranscode *FFmpegTranscodeFactory::create(TranscodeType t, std::string &in
 	break;
 	case TranscodeType::H265ToD1CifH264:
 	{
-		intput_codec = "hevc";
-		output_codec.push_back("libx264");
-		output_codec.push_back("libx264");
+		get_h265_decoder_name(intput_codec, intel_quick_sync_video, nvidia_video_codec, amd_advanced_media_framework);
+		output_codec.push_back(get_h264_encoder_name(intel_quick_sync_video, nvidia_video_codec, amd_advanced_media_framework));
+		output_codec.push_back(get_h264_encoder_name(intel_quick_sync_video, nvidia_video_codec, amd_advanced_media_framework));
 		output_width.push_back(720);
 		output_height.push_back(480);
 		output_width.push_back(352);

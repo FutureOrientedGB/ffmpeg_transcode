@@ -97,7 +97,10 @@ public:
 	~FFmpegTranscodeFactory();
 
 	// create transcoder and fill parameters
-	FFmpegTranscode *create(TranscodeType t, std::string &intput_codec, std::vector<std::string> &output_codec, std::vector<int> &output_width, std::vector<int> &output_height, std::vector<int64_t> &output_bitrate);
+	FFmpegTranscode *create(
+		TranscodeType t, std::string &intput_codec, std::vector<std::string> &output_codec, std::vector<int> &output_width, std::vector<int> &output_height,
+		std::vector<int64_t> &output_bitrate, bool intel_quick_sync_video = false, bool nvidia_video_codec = false, bool amd_advanced_media_framework = false
+	);
 
 private:
 	FFmpegTranscode *m_transcode;

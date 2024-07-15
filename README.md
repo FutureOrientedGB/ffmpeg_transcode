@@ -1,4 +1,4 @@
-# FFmpeg 7.0.1 x86\_64 CPU转码性能测试报告
+# FFmpeg 7.0.1 x86\_64 转码性能测试报告
 
 # 一、FFmpeg信息
 
@@ -67,16 +67,8 @@ x10为10进程，x20为20进程，-re x50为固定解码帧率50进程
 |  H.264  |  FULL HD  |  25  |  74M  |  I420  |  **x10: 91** x20: 89 \-re x50: 50  |  x10: 98% x20: 100% \-re x50: 32%  |  x10: 2.2G x20: 4.9G \-re x50: 5.1G  |
 |  H.265  |  FULL HD  |  25  |  74M  |  I420  |  x10: 61 **x20: 62** \-re x50:50   |  x10: 65% x20: 90% \-re x50: 43%  |  x10: 2.9G x20: 5.1G \-re x50: 5.6G  |
 
-# 六、FFmpeg Cli测试脚本和日志
 
-代码分支 [ffmpeg\_transcode](https://github.com/FutureOrientedGB/ffmpeg_cpu_transcode) 
-
-scritps/ffmpeg\_transcode\_cli.py
-
-scripts/ffmpeg\_transcode\_cli.sh
-
-
-# 七、libavcodec 转码负载性能
+# 六、libavcodec 转码负载性能
 
 以下测量值40线程下的90%分位数
 
@@ -94,7 +86,7 @@ scripts/ffmpeg\_transcode\_cli.sh
 |  编码  |  YUV420P  |  D1  |  H.265  |  D1  |  30.86 ms / 帧  |
 |  编码  |  YUV420P  |  CIF  |  H.265  |  CIF  |  14.67 ms / 帧  |
 
-# 八、libavcodec 测试结果
+# 七、libavcodec 测试结果
 
 以下测量值40线程下的90%分位数
 
@@ -118,6 +110,4 @@ CPU与MEM内存与ffmpeg cli并无区别，这里就不赘叙了
 |  H.265  |  D1+CIF  |  25  |  1M+128K  |  H.265  |  **15**  |
 |  H.265  |  D1+CIF  |  25  |  1M+128K  |  H.264  |  **41**  |
 
-# 九、libavcodec 测试代码和日志
 
-代码分支 [ffmpeg\_transcode](https://github.com/FutureOrientedGB/ffmpeg_cpu_transcode)

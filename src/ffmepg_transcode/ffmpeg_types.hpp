@@ -8,6 +8,7 @@
 #include <string>
 
 // ffmpeg
+struct AVBufferRef;
 struct AVFrame;
 struct AVPacket;
 struct AVCodec;
@@ -28,8 +29,12 @@ public:
     AVPacket *raw_ptr();
     bool is_null();
 
+    void need_more();
+    bool does_need_more();
+
 
 private:
+    bool m_need_more;
     AVPacket *m_packet;
 };
 
@@ -47,8 +52,12 @@ public:
     AVFrame *raw_ptr();
     bool is_null();
 
+    void need_more();
+    bool does_need_more();
+
 
 private:
+    bool m_need_more;
     AVFrame *m_frame;
 };
 
@@ -73,20 +82,25 @@ public:
     AVCodec *raw_ptr();
     bool is_null();
 
+    std::string codec_name();
+
 
 private:
     AVCodec *m_codec;
     CodecType m_type;
+    std::string m_codec_name;
 };
 
 
 class FFmpegCodecContext {
 public:
-    FFmpegCodecContext(int encoder_id, int decoder_id);
-    FFmpegCodecContext(std::string encoder_name, std::string decoder_name);
+    FFmpegCodecContext(int encoder_id, int decoder_id, int pixel_format = 0);
+    FFmpegCodecContext(std::string encoder_name, std::string codec_name, int pixel_format = 0);
     FFmpegCodecContext(const FFmpegCodecContext &other);
     FFmpegCodecContext(FFmpegCodecContext &&other) noexcept;
     ~FFmpegCodecContext();
+
+    bool configure_hw_accel();
 
     bool open(std::map<std::string, std::string> options);
 
@@ -95,9 +109,15 @@ public:
     AVCodecContext *raw_ptr();
     bool is_null();
 
+    int pixel_format();
+
 
 private:
     FFmpegCodec *m_codec;
     AVCodecContext *m_codec_context;
+
+    int m_pixel_format;
+    int m_hw_device_type;
+    AVBufferRef *m_hw_device_context;
 };
 

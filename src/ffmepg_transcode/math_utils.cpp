@@ -80,6 +80,10 @@ void Percentile::add(double value)
 
 double Percentile::calc(double percentile)
 {
+    if (m_values.empty()) {
+        return (double)INT_MIN;
+    }
+
     std::sort(m_values.begin(), m_values.end());  // sort the data
 
     double pos_of_percentile = (m_values.size() - 1) * percentile + 1;  // calculate the position of the percentile in the sorted data

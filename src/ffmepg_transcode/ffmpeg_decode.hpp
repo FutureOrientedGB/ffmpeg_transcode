@@ -10,7 +10,7 @@
 
 class FFmpegDecode {
 public:
-	FFmpegDecode(std::string decoder_name);
+	FFmpegDecode(std::string codec_name, int pixel_format = 0);
 	~FFmpegDecode();
 
 	bool setup();
@@ -21,7 +21,9 @@ public:
 
 
 private:
-	std::string m_decoder_name;
+	std::string m_codec_name;
+
+	int m_pixel_format;
 
 	FFmpegCodecContext *m_codec_context;
 };
