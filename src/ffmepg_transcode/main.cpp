@@ -5,6 +5,9 @@
 #include "math_utils.hpp"
 #include "string.utils.hpp"
 
+// c
+#include <limits.h>
+
 // ffmpeg
 extern "C" {
 #include <libavutil/log.h>

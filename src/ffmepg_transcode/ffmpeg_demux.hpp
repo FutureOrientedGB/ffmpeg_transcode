@@ -1,5 +1,8 @@
 #pragma once
 
+// c
+#include <limits.h>
+
 // c++
 #include <string>
 #include <vector>
