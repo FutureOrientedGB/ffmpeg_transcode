@@ -39,7 +39,7 @@ bool FFmpegScale::setup() {
 		m_dst_width, m_dst_height, (enum AVPixelFormat)m_dst_pixel_format,
 		SWS_FAST_BILINEAR, NULL, NULL, NULL
 	);
-	if (!m_SwsContext) {
+	if (nullptr == m_SwsContext) {
 		SPDLOG_ERROR("sws_getContext error");
 		return false;
 	}
@@ -58,32 +58,27 @@ void FFmpegScale::teardown()
 
 
 FFmpegFrame FFmpegScale::scale(FFmpegFrame &frame) {
-	do {
-		FFmpegFrame scaled_frame;
-		if (scaled_frame.is_null()) {
-			break;
-		}
-
-		scaled_frame.raw_ptr()->format = (enum AVPixelFormat)m_dst_pixel_format;
-		scaled_frame.raw_ptr()->width = m_dst_width;
-		scaled_frame.raw_ptr()->height = m_dst_height;
-
-		int code = av_frame_get_buffer(scaled_frame.raw_ptr(), 1);
-		if (code < 0) {
-			SPDLOG_ERROR("av_frame_get_buffer error, code: {}, msg: {}", code, ffmpeg_error_str(code));
-			break;
-		}
-
-		code = sws_scale(m_SwsContext, frame.raw_ptr()->data, frame.raw_ptr()->linesize, 0, m_src_height, scaled_frame.raw_ptr()->data, scaled_frame.raw_ptr()->linesize);
-		if (code < 0) {
-			SPDLOG_ERROR("sws_scale error, code: {}, msg: {}", code, ffmpeg_error_str(code));
-			break;
-		}
-
+	FFmpegFrame scaled_frame;
+	if (scaled_frame.is_null()) {
 		return scaled_frame;
+	}
 
-	} while (false);
+	scaled_frame.raw_ptr()->format = (enum AVPixelFormat)m_dst_pixel_format;
+	scaled_frame.raw_ptr()->width = m_dst_width;
+	scaled_frame.raw_ptr()->height = m_dst_height;
 
-	return FFmpegFrame(nullptr);
+	int code = av_frame_get_buffer(scaled_frame.raw_ptr(), 1);
+	if (code < 0) {
+		SPDLOG_ERROR("av_frame_get_buffer error, code: {}, msg: {}", code, ffmpeg_error_str(code));
+		return scaled_frame;
+	}
+
+	code = sws_scale(m_SwsContext, frame.raw_ptr()->data, frame.raw_ptr()->linesize, 0, m_src_height, scaled_frame.raw_ptr()->data, scaled_frame.raw_ptr()->linesize);
+	if (code < 0) {
+		SPDLOG_ERROR("sws_scale error, code: {}, msg: {}", code, ffmpeg_error_str(code));
+		return scaled_frame;
+	}
+
+	return scaled_frame;
 }
 

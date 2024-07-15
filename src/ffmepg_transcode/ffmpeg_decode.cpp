@@ -31,10 +31,12 @@ FFmpegDecode::~FFmpegDecode()
 bool FFmpegDecode::setup() {
 	m_codec_context = new FFmpegCodecContext("", m_decoder_name);
 	if (m_codec_context->is_null()) {
+		teardown();
 		return false;
 	}
 
 	if (!m_codec_context->open({ {"threads", "1"} })) {
+		teardown();
 		return false;
 	}
 

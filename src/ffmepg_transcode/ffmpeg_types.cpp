@@ -246,6 +246,7 @@ FFmpegCodec::~FFmpegCodec()
 void FFmpegCodec::free()
 {
     m_codec = nullptr;
+    m_type = CodecType::Uninitialized;
 }
 
 
@@ -268,6 +269,10 @@ FFmpegCodecContext::FFmpegCodecContext(int encoder_id, int decoder_id)
     , m_codec_context(nullptr)
 {
     m_codec = new FFmpegCodec(encoder_id, decoder_id);
+    if (nullptr == m_codec || m_codec->is_null()) {
+        return;
+    }
+
     m_codec_context = avcodec_alloc_context3(m_codec->raw_ptr());
     if (nullptr == m_codec_context) {
         SPDLOG_ERROR("avcodec_alloc_context3 error, encoder_id: {}, decoder_id: {}", encoder_id, decoder_id);
@@ -280,6 +285,10 @@ FFmpegCodecContext::FFmpegCodecContext(std::string encoder_name, std::string dec
     , m_codec_context(nullptr)
 {
     m_codec = new FFmpegCodec(encoder_name, decoder_name);
+    if (nullptr == m_codec || m_codec->is_null()) {
+        return;
+    }
+
     m_codec_context = avcodec_alloc_context3(m_codec->raw_ptr());
     if (nullptr == m_codec_context) {
         SPDLOG_ERROR("avcodec_alloc_context3 error, encoder_name: {}, decoder_name: {}", encoder_name, decoder_name);
@@ -323,6 +332,7 @@ bool FFmpegCodecContext::open(std::map<std::string, std::string> options)
     int code = avcodec_open2(m_codec_context, m_codec->raw_ptr(), &dict);
     if (code < 0) {
         SPDLOG_ERROR("avcodec_open2 error, code: {}, msg: {}", code, ffmpeg_error_str(code));
+        free();
     }
 
     if (dict != nullptr) {

@@ -36,6 +36,7 @@ FFmpegEncode::~FFmpegEncode()
 bool FFmpegEncode::setup() {
 	m_codec_context = new FFmpegCodecContext(m_encoder_name, "");
 	if (m_codec_context->is_null()) {
+		teardown();
 		return false;
 	}
 
@@ -64,6 +65,7 @@ bool FFmpegEncode::setup() {
 	}
 
 	if (!m_codec_context->open({ {"threads", "1"} })) {
+		teardown();
 		return false;
 	}
 

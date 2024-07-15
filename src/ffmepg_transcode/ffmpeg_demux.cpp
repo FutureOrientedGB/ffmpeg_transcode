@@ -21,6 +21,10 @@ FFmpegDemux::FFmpegDemux(std::string input_url)
 	, m_video_stream_index(-1)
 	, m_video_stream(nullptr)
 	, m_format_context(nullptr)
+	, m_codec_id(-1)
+	, m_width(-1)
+	, m_height(-1)
+	, m_fps(-1.0)
 {
 }
 
@@ -33,32 +37,53 @@ FFmpegDemux::~FFmpegDemux()
 
 bool FFmpegDemux::setup() {
 	int code = 0;
-	do {
-		AVDictionary *options = 0;
-		av_dict_set(&options, "rtsp_transport", "tcp", 0);
 
-		code = avformat_open_input(&m_format_context, m_input_url.c_str(), NULL, &options);
-		if (code < 0) {
-			SPDLOG_ERROR("avformat_open_input error, code: {}, msg: {}, m_input_url: {}", code, ffmpeg_error_str(code), m_input_url);
-			return false;
-		}
+	AVDictionary *options = 0;
+	av_dict_set(&options, "rtsp_transport", "tcp", 0);
 
-		code = avformat_find_stream_info(m_format_context, NULL);
-		if (code < 0) {
-			SPDLOG_ERROR("avformat_find_stream_info error, code: {}, msg: {}, m_input_url: {}", code, ffmpeg_error_str(code), m_input_url);
-			return false;
-		}
+	code = avformat_open_input(&m_format_context, m_input_url.c_str(), NULL, &options);
+	if (code < 0) {
+		SPDLOG_ERROR("avformat_open_input error, code: {}, msg: {}, m_input_url: {}", code, ffmpeg_error_str(code), m_input_url);
+		return false;
+	}
 
-		code = av_find_best_stream(m_format_context, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
-		if (code < 0) {
-			SPDLOG_ERROR("av_find_best_stream error, code: {}, msg: {}, m_input_url: {}", code, ffmpeg_error_str(code), m_input_url);
-			return false;
-		}
+	code = avformat_find_stream_info(m_format_context, NULL);
+	if (code < 0) {
+		SPDLOG_ERROR("avformat_find_stream_info error, code: {}, msg: {}, m_input_url: {}", code, ffmpeg_error_str(code), m_input_url);
+		return false;
+	}
 
-		m_video_stream_index = code;
-		m_video_stream = m_format_context->streams[m_video_stream_index];
+	code = av_find_best_stream(m_format_context, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
+	if (code < 0) {
+		SPDLOG_ERROR("av_find_best_stream error, code: {}, msg: {}, m_input_url: {}", code, ffmpeg_error_str(code), m_input_url);
+		return false;
+	}
 
-	} while (false);
+	m_video_stream_index = code;
+	m_video_stream = m_format_context->streams[m_video_stream_index];
+
+	AVCodecParameters *codec_params = m_video_stream->codecpar;
+	m_codec_id = (int)codec_params->codec_id;
+	m_width = codec_params->width;
+	m_height = codec_params->height;
+
+	if(m_video_stream->avg_frame_rate.num > 0 && m_video_stream->avg_frame_rate.den > 0) {
+		// fps
+		m_fps = av_q2d(m_video_stream->avg_frame_rate);
+	}
+	else if(m_video_stream->r_frame_rate.num > 0 && m_video_stream->r_frame_rate.den > 0) {
+		// tbr
+		m_fps = av_q2d(m_video_stream->r_frame_rate);
+	}
+	else if(m_video_stream->time_base.num > 0 && m_video_stream->time_base.den > 0) {
+		// tbn
+		m_fps = 1.0 / av_q2d(m_video_stream->time_base);
+	}
+	else {
+		// default
+		m_fps = 25.0;
+		SPDLOG_WARN("can't find fps from frame_rate and timebase, set default to 25.0");
+	}
 
 	return true;
 }
@@ -95,3 +120,45 @@ FFmpegPacket FFmpegDemux::read_frame() {
 
 	return packet;
 }
+
+
+std::vector<FFmpegPacket> FFmpegDemux::read_some_frames(int limit_packets)
+{
+	std::vector<FFmpegPacket> vec;
+
+	for (int i = 0; i < limit_packets; i++) {
+		FFmpegPacket packet = read_frame();
+		if (packet.is_null()) {
+			break;
+		}
+
+		vec.push_back(packet);
+	}
+
+	return vec;
+}
+
+
+int FFmpegDemux::codec_id()
+{
+	return m_codec_id;
+}
+
+
+int FFmpegDemux::width()
+{
+	return m_width;
+}
+
+
+int FFmpegDemux::height()
+{
+	return m_height;
+}
+
+
+double FFmpegDemux::fps()
+{
+	return m_fps;
+}
+

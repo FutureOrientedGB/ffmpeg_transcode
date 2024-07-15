@@ -12,8 +12,8 @@
 
 enum class TranscodeType : uint8_t {
 	Invalid,
-	DecodeH264Only,
-	DecodeH265Only,
+	H264DecodeOnly,
+	H265DecodeOnly,
 	H264ToD1H264,
 	H264ToCifH264,
 	H265ToD1H265,
@@ -41,10 +41,6 @@ private:
 
 
 
-std::vector<FFmpegPacket> demux_all_packets(std::string input_url, int limit_packets);
-
-
-
 class FFmpegTranscode {
 public:
 	virtual double run(
@@ -54,7 +50,7 @@ public:
 	) = 0;
 
 	double multi_threading_test(
-		std::vector<FFmpegPacket> &frames_queue, int concurrency,
+		int threads, std::vector<FFmpegPacket> &frames_queue,
 		std::string input_codec, int input_width, int input_height,
 		std::vector<std::string> output_codec, std::vector<int> output_width, std::vector<int> output_height, std::vector<int64_t> output_bitrate
 	);

@@ -2,6 +2,7 @@
 
 // c++
 #include <string>
+#include <vector>
 
 // project
 #include "ffmpeg_types.hpp"
@@ -21,6 +22,12 @@ public:
 	void teardown();
 
 	FFmpegPacket read_frame();
+	std::vector<FFmpegPacket> read_some_frames(int limit_packets = INT_MAX);
+
+	int codec_id();
+	int width();
+	int height();
+	double fps();
 
 
 private:
@@ -30,5 +37,10 @@ private:
 	AVStream *m_video_stream;
 
 	AVFormatContext *m_format_context;
+
+	int m_codec_id;
+	int m_width;
+	int m_height;
+	double m_fps;
 };
 
