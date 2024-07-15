@@ -32,7 +32,7 @@ public:
 #else
         : input_h264_url("/media/1080p.25fps.4M.264")
         , input_h265_url("/media/1080p.25fps.3M.265")
-        , log_path("/media/transcode.log")
+        , log_path("transcode.log")
 #endif
         , log_level((int)spdlog::level::info)
         , ffmpeg_log_level(AV_LOG_INFO)
