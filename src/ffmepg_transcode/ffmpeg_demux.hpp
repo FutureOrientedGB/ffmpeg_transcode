@@ -28,6 +28,7 @@ public:
 	std::vector<FFmpegPacket> read_some_frames(int limit_packets = INT_MAX);
 
 	int codec_id();
+	std::string codec_name();
 	int width();
 	int height();
 	double fps();

@@ -72,7 +72,7 @@ int transcode(CommandArguments args) {
     TimeIt ti;
     TranscodeType task_type = TranscodeTypeCvt::from_string(args.task);
     if (task_type != TranscodeType::Invalid) {
-        std::string intput_codec;
+        std::string input_codec;
         std::vector<std::string> output_codec;
         std::vector<int> output_width;
         std::vector<int> output_height;
@@ -86,6 +86,7 @@ int transcode(CommandArguments args) {
 
             int width = demux.width();
             int height = demux.height();
+            input_codec = demux.codec_name();
             std::vector<FFmpegPacket> frames_queue = demux.read_some_frames(args.limit_input_frames);
 
             ti.reset();
@@ -93,10 +94,10 @@ int transcode(CommandArguments args) {
 
             FFmpegTranscodeFactory factory;
             FFmpegTranscode *transcode = factory.create(
-                task_type, intput_codec, output_codec, output_width, output_height, output_bitrate,
+                task_type, input_codec, output_codec, output_width, output_height, output_bitrate,
                 args.intel_quick_sync_video, args.nvidia_video_codec, args.amd_advanced_media_framework
             );
-            transcode->multi_threading_test(args.threads, frames_queue, intput_codec, width, height, output_codec, output_width, output_height, output_bitrate);
+            transcode->multi_threading_test(args.threads, frames_queue, input_codec, width, height, output_codec, output_width, output_height, output_bitrate);
 
             SPDLOG_INFO("========== threads: {}, frames: {}, {} end with {:.2f}s ==========", args.threads, frames_queue.size(), args.task, ti.elapsed_seconds());
         }
@@ -126,13 +127,13 @@ int transcode(CommandArguments args) {
             for (auto e = (int)TranscodeType::H264DecodeOnly; e < (int)TranscodeType::AllTasks; e++) {
                 FFmpegTranscodeFactory factory;
                 FFmpegTranscode *transcode = factory.create(
-                    (TranscodeType)e, intput_codec, output_codec, output_width,
+                    (TranscodeType)e, input_codec, output_codec, output_width,
                     output_height, output_bitrate, args.intel_quick_sync_video, args.nvidia_video_codec, args.amd_advanced_media_framework
                 );
 
                 bool is_h264 = startswith(TranscodeTypeCvt::to_string((TranscodeType)e), "h264_");
                 transcode->multi_threading_test(
-                    args.threads, is_h264 ? frames_queue_h264 : frames_queue_h265, intput_codec, is_h264 ? width_h264 : width_h265, is_h264 ? height_h264 : height_h265,
+                    args.threads, is_h264 ? frames_queue_h264 : frames_queue_h265, input_codec, is_h264 ? width_h264 : width_h265, is_h264 ? height_h264 : height_h265,
                     output_codec, output_width, output_height, output_bitrate
                 );
             }

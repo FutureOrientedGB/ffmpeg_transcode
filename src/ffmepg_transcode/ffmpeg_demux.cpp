@@ -152,6 +152,12 @@ int FFmpegDemux::codec_id()
 }
 
 
+std::string FFmpegDemux::codec_name()
+{
+	return avcodec_get_name((AVCodecID)m_codec_id);
+}
+
+
 int FFmpegDemux::width()
 {
 	return m_width;
