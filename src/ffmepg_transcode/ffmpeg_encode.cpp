@@ -51,17 +51,19 @@ bool FFmpegEncode::setup() {
 		m_codec_context->raw_ptr()->max_b_frames = 0;
 
 		int code = 0;
-		code = av_opt_set(m_codec_context->raw_ptr()->priv_data, "preset", "ultrafast", 0);
-		if (code < 0) {
-			SPDLOG_ERROR("av_opt_set(preset, ultrafast) error, code: {}, msg: {}, m_encoder_name: {}", code, ffmpeg_error_str(code), m_codec_name);
-		}
-		code = av_opt_set(m_codec_context->raw_ptr()->priv_data, "tune", "zerolatency", 0);
-		if (code < 0) {
-			SPDLOG_ERROR("av_opt_set(tune, zerolatency) error, code: {}, msg: {}, m_encoder_name: {}", code, ffmpeg_error_str(code), m_codec_name);
-		}
+		if (m_codec_name == "libx264" || m_codec_name == "libx265") {
+			code = av_opt_set(m_codec_context->raw_ptr()->priv_data, "preset", "ultrafast", 0);
+			if (code < 0) {
+				SPDLOG_ERROR("av_opt_set(preset, ultrafast) error, code: {}, msg: {}, m_encoder_name: {}", code, ffmpeg_error_str(code), m_codec_name);
+			}
+			code = av_opt_set(m_codec_context->raw_ptr()->priv_data, "tune", "zerolatency", 0);
+			if (code < 0) {
+				SPDLOG_ERROR("av_opt_set(tune, zerolatency) error, code: {}, msg: {}, m_encoder_name: {}", code, ffmpeg_error_str(code), m_codec_name);
+			}
 
-		if (m_codec_name == "libx265") {
-			av_opt_set(m_codec_context->raw_ptr()->priv_data, "x265-params", "threads=1", 0);
+			if (m_codec_name == "libx265") {
+				av_opt_set(m_codec_context->raw_ptr()->priv_data, "x265-params", "threads=1", 0);
+			}
 		}
 
 		if (!m_codec_context->open({ {"threads", "1"} })) {
@@ -84,8 +86,8 @@ void FFmpegEncode::teardown()
 	}
 	m_codec_context = nullptr;
 
-	m_pixel_format = AV_PIX_FMT_NONE;
 	m_codec_name.clear();
+	m_pixel_format = AV_PIX_FMT_NONE;
 }
 
 

@@ -100,7 +100,7 @@ public:
     FFmpegCodecContext(FFmpegCodecContext &&other) noexcept;
     ~FFmpegCodecContext();
 
-    bool configure_hw_accel();
+    bool auto_hw_accel();
 
     bool open(std::map<std::string, std::string> options);
 
@@ -110,6 +110,10 @@ public:
     bool is_null();
 
     int pixel_format();
+    int hw_device_type();
+    AVBufferRef *hw_device_context();
+    std::pair<int, int> pixel_aspect();
+    std::pair<int, int> time_base();
 
 
 private:

@@ -32,6 +32,7 @@ pkg_check_modules(LIBFFMPEG REQUIRED IMPORTED_TARGET
     libavcodec
     libavutil
     libswscale
+    libavutil
 )
 
 # find cli11

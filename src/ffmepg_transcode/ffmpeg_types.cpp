@@ -220,6 +220,13 @@ FFmpegCodec::FFmpegCodec(std::string encoder_name, std::string decoder_name)
     : m_codec(nullptr)
     , m_type(CodecType::Uninitialized)
 {
+    if (decoder_name == "h264_amf") {
+        decoder_name = "h264";
+    }
+    else if (decoder_name == "hevc_amf") {
+        decoder_name = "hevc";
+    }
+
     if (!encoder_name.empty()) {
         m_codec = (AVCodec *)avcodec_find_encoder_by_name(encoder_name.c_str());
         if (m_codec != nullptr) {
@@ -349,7 +356,7 @@ FFmpegCodecContext::FFmpegCodecContext(int encoder_id, int decoder_id, int pixel
             break;
         }
 
-        if (!configure_hw_accel()) {
+        if (!auto_hw_accel()) {
             break;
         }
 
@@ -386,7 +393,7 @@ FFmpegCodecContext::FFmpegCodecContext(std::string encoder_name, std::string dec
             return;
         }
 
-        if (!configure_hw_accel()) {
+        if (!auto_hw_accel()) {
             break;
         }
 
@@ -404,7 +411,6 @@ FFmpegCodecContext::FFmpegCodecContext(std::string encoder_name, std::string dec
 
         return;
     } while (false);
-
 
     free();
 }
@@ -444,7 +450,7 @@ FFmpegCodecContext::~FFmpegCodecContext()
 }
 
 
-bool FFmpegCodecContext::configure_hw_accel()
+bool FFmpegCodecContext::auto_hw_accel()
 {
     if (endswith(m_codec->codec_name(),"_qsv")) {
         m_hw_device_type = AV_HWDEVICE_TYPE_QSV;
@@ -455,8 +461,8 @@ bool FFmpegCodecContext::configure_hw_accel()
         m_pixel_format = AV_PIX_FMT_CUDA;
     }
     else if (endswith(m_codec->codec_name(), "_amf")) {
-        //m_hw_device_type = AV_HWDEVICE_TYPE_AMF;
-        //m_pixel_format = AV_PIX_FMT_AMF;
+        m_hw_device_type = AV_HWDEVICE_TYPE_D3D11VA;
+        m_pixel_format = AV_PIX_FMT_D3D11;
     }
 
     int code = 0;
@@ -550,5 +556,29 @@ bool FFmpegCodecContext::is_null()
 int FFmpegCodecContext::pixel_format()
 {
     return m_pixel_format;
+}
+
+
+int FFmpegCodecContext::hw_device_type()
+{
+    return m_hw_device_type;
+}
+
+
+AVBufferRef *FFmpegCodecContext::hw_device_context()
+{
+    return m_hw_device_context;
+}
+
+
+std::pair<int, int> FFmpegCodecContext::pixel_aspect()
+{
+    return std::pair<int, int>(m_codec_context->sample_aspect_ratio.num, m_codec_context->sample_aspect_ratio.den);
+}
+
+
+std::pair<int, int> FFmpegCodecContext::time_base()
+{
+    return std::pair<int, int>(m_codec_context->time_base.num != 0 ? m_codec_context->time_base.num : 25, m_codec_context->time_base.den);
 }
 

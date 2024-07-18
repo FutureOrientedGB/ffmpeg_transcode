@@ -14,6 +14,7 @@
 #include "ffmpeg_scale.hpp"
 #include "ffmpeg_encode.hpp"
 #include "math_utils.hpp"
+#include "string_utils.hpp"
 
 // ffmpeg
 extern "C" {
@@ -238,6 +239,20 @@ double FFmpegDecodeOnly::run(
 }
 
 
+std::string get_filter_text(std::string input_codec, int width, int height) {
+    if (endswith(input_codec, "_qsv")) {
+        return fmt::format("scale_qsv=w={}:h={}", width, height);
+    }
+    else if (endswith(input_codec, "_cuvid")) {
+        return fmt::format("scale_npp=w={}:h={}", width, height);
+    }
+    else if (endswith(input_codec, "_amf")) {
+        return fmt::format("scale_amf=w={}:h={}", width, height);  // not working
+    }
+    return fmt::format("scale={}:{}", width, height);
+}
+
+
 double FFmpegTranscodeOne::run(
     int task_id, std::vector<FFmpegPacket> &frames_queue,
     std::string input_codec, int input_width, int input_height,
@@ -254,12 +269,14 @@ double FFmpegTranscodeOne::run(
         return -1;
     }
 
-    FFmpegScale scaler(input_width, input_height, (int)AV_PIX_FMT_YUV420P, output_width[0], output_height[0], (int)AV_PIX_FMT_YUV420P);
-    if (!scaler.setup()) {
-        return -2;
-    }
+    int pix_fmt = decoder.pixel_format();
+    auto time_base = decoder.time_base();
+    auto pixel_aspect = decoder.pixel_aspect();
+    std::string scale_filter = get_filter_text(input_codec, output_width[0], output_height[0]);
 
-    FFmpegEncode encoder(output_codec[0], output_width[0], output_height[0], output_bitrate[0], (int)AV_PIX_FMT_YUV420P);
+    FFmpegScale scaler(input_width, input_height, pix_fmt, output_width[0], output_height[0], pix_fmt, pixel_aspect.first, pixel_aspect.second, time_base.first, time_base.second, scale_filter);
+
+    FFmpegEncode encoder(output_codec[0], output_width[0], output_height[0], output_bitrate[0], pix_fmt);
     if (!encoder.setup()) {
         return -3;
     }
@@ -301,6 +318,10 @@ double FFmpegTranscodeOne::run(
         ma50_decode_gop.add(ma50_decode_frame.calc());
         percentile_decode.add(decode_elasped_ms);
         ti_step.reset();
+
+        if (!scaler.setup(yuv_frame)) {
+            return -2;
+        }
 
         // scale
         FFmpegFrame scaled_yuv_frame = scaler.scale(yuv_frame);
@@ -388,22 +409,21 @@ double FFmpegTranscodeTwo::run(
         return -1;
     }
 
-    FFmpegScale scaler1(input_width, input_height, (int)AV_PIX_FMT_YUV420P, output_width[0], output_height[0], (int)AV_PIX_FMT_YUV420P);
-    if (!scaler1.setup()) {
-        return -2;
-    }
+    int pix_fmt = decoder.pixel_format();
+    auto time_base = decoder.time_base();
+    auto pixel_aspect = decoder.pixel_aspect();
+    std::string scale_filter1 = get_filter_text(input_codec, output_width[0], output_height[0]);
+    std::string scale_filter2 = get_filter_text(input_codec, output_width[1], output_height[1]);
 
-    FFmpegScale scaler2(input_width, input_height, (int)AV_PIX_FMT_YUV420P, output_width[1], output_height[1], (int)AV_PIX_FMT_YUV420P);
-    if (!scaler2.setup()) {
-        return -3;
-    }
+    FFmpegScale scaler1(input_width, input_height, pix_fmt, output_width[0], output_height[0], pix_fmt, pixel_aspect.first, pixel_aspect.second, time_base.first, time_base.second, scale_filter1);
+    FFmpegScale scaler2(input_width, input_height, pix_fmt, output_width[1], output_height[1], pix_fmt, pixel_aspect.first, pixel_aspect.second, time_base.first, time_base.second, scale_filter2);
 
-    FFmpegEncode encoder1(output_codec[0], output_width[0], output_height[0], output_bitrate[0], (int)AV_PIX_FMT_YUV420P);
+    FFmpegEncode encoder1(output_codec[0], output_width[0], output_height[0], output_bitrate[0], pix_fmt);
     if (!encoder1.setup()) {
         return -4;
     }
 
-    FFmpegEncode encoder2(output_codec[1], output_width[1], output_height[1], output_bitrate[1], (int)AV_PIX_FMT_YUV420P);
+    FFmpegEncode encoder2(output_codec[1], output_width[1], output_height[1], output_bitrate[1], pix_fmt);
     if (!encoder2.setup()) {
         return -5;
     }
@@ -442,6 +462,14 @@ double FFmpegTranscodeTwo::run(
         ma50_decode_gop.add(ma50_decode_frame.calc());
         percentile_decode.add(decode_elasped_ms);
         ti_step.reset();
+
+        if (!scaler1.setup(yuv_frame)) {
+            return -2;
+        }
+
+        if (!scaler2.setup(yuv_frame)) {
+            return -3;
+        }
 
         bool need_more1 = false;
         thread_pool.submit(
@@ -602,7 +630,7 @@ void get_h264_decoder_name(std::string &codec_name, bool intel_quick_sync_video,
         codec_name = "h264_cuvid";
     }
     else if (amd_advanced_media_framework) {
-        codec_name = "h264_amf";  // not working
+        codec_name = "h264_amf";
     }
     else {
         codec_name = "h264";
@@ -618,7 +646,7 @@ void get_h265_decoder_name(std::string &codec_name, bool intel_quick_sync_video,
         codec_name = "hevc_cuvid";
     }
     else if (amd_advanced_media_framework) {
-        codec_name = "hevc_amf";  // not working
+        codec_name = "hevc_amf";
     }
     else {
         codec_name = "hevc";

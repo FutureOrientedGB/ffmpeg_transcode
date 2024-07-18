@@ -57,6 +57,7 @@ void FFmpegDecode::teardown()
 	m_codec_context = nullptr;
 
 	m_codec_name.clear();
+	m_pixel_format = AV_PIX_FMT_NONE;
 }
 
 
@@ -97,3 +98,31 @@ FFmpegFrame FFmpegDecode::receive_frame() {
 }
 
 
+int FFmpegDecode::pixel_format()
+{
+	return m_codec_context->pixel_format();
+}
+
+
+int FFmpegDecode::hw_device_type()
+{
+	return m_codec_context->hw_device_type();
+}
+
+
+AVBufferRef *FFmpegDecode::hw_device_context()
+{
+	return m_codec_context->hw_device_context();
+}
+
+
+std::pair<int, int> FFmpegDecode::pixel_aspect()
+{
+	return m_codec_context->pixel_aspect();
+}
+
+
+std::pair<int, int> FFmpegDecode::time_base()
+{
+	return m_codec_context->time_base();
+}
