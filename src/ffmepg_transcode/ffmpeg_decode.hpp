@@ -20,8 +20,6 @@ public:
 	FFmpegFrame receive_frame();
 
 	int pixel_format();
-	int hw_device_type();
-	AVBufferRef *hw_device_context();
 	std::pair<int, int> pixel_aspect();
 	std::pair<int, int> time_base();
 

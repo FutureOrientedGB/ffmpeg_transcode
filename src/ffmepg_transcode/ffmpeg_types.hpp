@@ -126,8 +126,6 @@ public:
     bool is_null();
 
     int pixel_format();
-    int hw_device_type();
-    AVBufferRef *hw_device_context();
     std::pair<int, int> pixel_aspect();
     std::pair<int, int> time_base();
 
@@ -135,7 +133,6 @@ public:
 protected:
     FFmpegCodec *m_codec;
     AVCodecContext *m_codec_context;
-    int m_codec_id;
     std::string m_codec_name;
 
     int m_pixel_format;

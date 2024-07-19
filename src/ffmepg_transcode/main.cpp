@@ -29,7 +29,7 @@ public:
         , input_h265_url("./media/1080p.25fps.3M.265")
         , log_path("transcode.log")
         , log_level((int)spdlog::level::info)
-        , ffmpeg_log_level(AV_LOG_TRACE)
+        , ffmpeg_log_level(AV_LOG_INFO)
         , threads(1)
         , limit_input_frames(INT_MAX)
         , task("h264_to_cif_h264")

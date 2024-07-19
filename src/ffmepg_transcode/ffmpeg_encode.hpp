@@ -13,25 +13,25 @@
 
 class FFmpegEncode {
 public:
-	FFmpegEncode(std::string encoder_name, int width, int height, int64_t bitrate, int pixel_format);
-	~FFmpegEncode();
+    FFmpegEncode(std::string encoder_name, int width, int height, int64_t bitrate, int pixel_format);
+    ~FFmpegEncode();
 
-	bool setup();
-	void teardown();
+    bool setup(AVBufferRef *hw_frames_context);
+    void teardown();
 
-	bool send_frame(FFmpegFrame &frame);
-	FFmpegPacket receive_packet();
+    bool send_frame(FFmpegFrame &frame);
+    FFmpegPacket receive_packet();
 
 
 private:
-	std::string m_codec_name;
+    std::string m_codec_name;
 
-	int m_width;
-	int m_height;
-	int64_t m_bitrate;
+    int m_width;
+    int m_height;
+    int64_t m_bitrate;
 
-	int m_pixel_format;
+    int m_pixel_format;
 
-	FFmpegCodecContext *m_codec_context;
+    FFmpegCodecContext *m_codec_context;
 };
 

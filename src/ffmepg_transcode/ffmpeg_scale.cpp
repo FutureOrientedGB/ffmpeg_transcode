@@ -11,9 +11,8 @@ extern "C" {
 #include <libavutil/opt.h>
 #include <libavutil/hwcontext.h>
 #include <libavfilter/avfilter.h>
-#include <libavfilter/buffersink.h>
 #include <libavfilter/buffersrc.h>
-#include <libswscale/swscale.h>
+#include <libavfilter/buffersink.h>
 }
 
 // spdlog
@@ -46,7 +45,7 @@ FFmpegScale::~FFmpegScale()
 }
 
 
-bool FFmpegScale::setup(FFmpegFrame &frame) {
+bool FFmpegScale::setup(AVBufferRef *hw_frames_context) {
     if (m_filter_graph != nullptr) {
         return true;
     }
@@ -102,16 +101,15 @@ bool FFmpegScale::setup(FFmpegFrame &frame) {
             break;
         }
 
-        if (frame.raw_ptr()->hw_frames_ctx != nullptr) {
+        if (hw_frames_context != nullptr) {
             AVBufferSrcParameters *buffer_src_params = av_buffersrc_parameters_alloc();
             if (nullptr == buffer_src_params) {
                 SPDLOG_ERROR("av_buffersrc_parameters_alloc error");
                 break;
             }
 
-            memset(buffer_src_params, 0, sizeof(*buffer_src_params));
             buffer_src_params->format = m_src_pixel_format;
-            buffer_src_params->hw_frames_ctx = av_buffer_ref(frame.raw_ptr()->hw_frames_ctx);
+            buffer_src_params->hw_frames_ctx = av_buffer_ref(hw_frames_context);
             int code = av_buffersrc_parameters_set(m_buffer_src_filter_context, buffer_src_params);
             av_free(buffer_src_params);
             if (code < 0) {
@@ -219,5 +217,11 @@ FFmpegFrame FFmpegScale::scale(FFmpegFrame &frame) {
     }
 
     return scaled_frame;
+}
+
+
+AVBufferRef *FFmpegScale::hw_frames_context()
+{
+    return av_buffersink_get_hw_frames_ctx(m_buffer_sink_filter_context);
 }
 

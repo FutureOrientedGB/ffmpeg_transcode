@@ -4,6 +4,7 @@
 #include "ffmpeg_types.hpp"
 
 // ffmpeg
+struct AVBufferRef;
 struct AVFilter;
 struct AVFilterGraph;
 struct AVFilterInOut;
@@ -16,10 +17,12 @@ public:
 	FFmpegScale(int src_width, int src_height, int src_pixel_format, int dst_width, int dst_height, int dst_pixel_format, int pixel_aspect_num = 1, int pixel_aspect_den = 1, int time_base_num = 1, int time_base_den = 1, std::string filter_text = "");
 	~FFmpegScale();
 
-	bool setup(FFmpegFrame &frame);
+	bool setup(AVBufferRef *hw_frames_context);
 	void teardown();
 
 	FFmpegFrame scale(FFmpegFrame &frame);
+
+	AVBufferRef *hw_frames_context();
 
 
 private:

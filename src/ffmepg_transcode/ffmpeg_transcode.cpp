@@ -277,9 +277,6 @@ double FFmpegTranscodeOne::run(
     FFmpegScale scaler(input_width, input_height, pix_fmt, output_width[0], output_height[0], pix_fmt, pixel_aspect.first, pixel_aspect.second, time_base.first, time_base.second, scale_filter);
 
     FFmpegEncode encoder(output_codec[0], output_width[0], output_height[0], output_bitrate[0], pix_fmt);
-    if (!encoder.setup()) {
-        return -3;
-    }
 
     // statics
     TimeIt ti_task;
@@ -319,7 +316,7 @@ double FFmpegTranscodeOne::run(
         percentile_decode.add(decode_elasped_ms);
         ti_step.reset();
 
-        if (!scaler.setup(yuv_frame)) {
+        if (!scaler.setup(yuv_frame.raw_ptr()->hw_frames_ctx)) {
             return -2;
         }
 
@@ -339,6 +336,10 @@ double FFmpegTranscodeOne::run(
         percentile_scale.add(scale_elasped_ms);
         ti_step.reset();
 
+        if (!encoder.setup(scaler.hw_frames_context())) {
+            return -3;
+        }
+
         // encode
         if (!encoder.send_frame(scaled_yuv_frame)) {
             break;
@@ -354,6 +355,8 @@ double FFmpegTranscodeOne::run(
         if (encoded_es_packet.is_null()) {
             break;
         }
+
+        //printf("i: %d, size: %d\n", i, encoded_es_packet.raw_ptr()->size);
 
         // free encoded frame
         encoded_es_packet.free();
@@ -419,14 +422,7 @@ double FFmpegTranscodeTwo::run(
     FFmpegScale scaler2(input_width, input_height, pix_fmt, output_width[1], output_height[1], pix_fmt, pixel_aspect.first, pixel_aspect.second, time_base.first, time_base.second, scale_filter2);
 
     FFmpegEncode encoder1(output_codec[0], output_width[0], output_height[0], output_bitrate[0], pix_fmt);
-    if (!encoder1.setup()) {
-        return -4;
-    }
-
     FFmpegEncode encoder2(output_codec[1], output_width[1], output_height[1], output_bitrate[1], pix_fmt);
-    if (!encoder2.setup()) {
-        return -5;
-    }
 
     // statics
     TimeIt ti_task;
@@ -463,20 +459,26 @@ double FFmpegTranscodeTwo::run(
         percentile_decode.add(decode_elasped_ms);
         ti_step.reset();
 
-        if (!scaler1.setup(yuv_frame)) {
+        if (!scaler1.setup(yuv_frame.raw_ptr()->hw_frames_ctx)) {
             return -2;
         }
 
-        if (!scaler2.setup(yuv_frame)) {
+        if (!scaler2.setup(yuv_frame.raw_ptr()->hw_frames_ctx)) {
             return -3;
         }
 
+        bool has_error1 = false;
         bool need_more1 = false;
         thread_pool.submit(
-            [&yuv_frame, &scaler1, &encoder1, &need_more1]() {
+            [&yuv_frame, &scaler1, &encoder1, &need_more1, &has_error1]() {
                 // scale
                 FFmpegFrame scaled_yuv_frame = scaler1.scale(yuv_frame);
                 if (scaled_yuv_frame.is_null()) {
+                    return;
+                }
+
+                if (!encoder1.setup(scaler1.hw_frames_context())) {
+                    has_error1 = true;
                     return;
                 }
 
@@ -501,12 +503,18 @@ double FFmpegTranscodeTwo::run(
             }
         );
 
+        bool has_error2 = false;
         bool need_more2 = false;
         thread_pool.submit(
-            [&yuv_frame, &scaler2, &encoder2, &need_more2]() {
+            [&yuv_frame, &scaler2, &encoder2, &need_more2, &has_error2]() {
                 // scale
                 FFmpegFrame scaled_yuv_frame = scaler2.scale(yuv_frame);
                 if (scaled_yuv_frame.is_null()) {
+                    return;
+                }
+
+                if (!encoder2.setup(scaler2.hw_frames_context())) {
+                    has_error2 = true;
                     return;
                 }
 
@@ -532,6 +540,10 @@ double FFmpegTranscodeTwo::run(
         );
 
         thread_pool.wait_for_tasks();
+
+        if (has_error1 || has_error2) {
+            return -4;
+        }
 
         if (need_more1 || need_more2) {
             continue;
