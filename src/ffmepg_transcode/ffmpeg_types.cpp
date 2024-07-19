@@ -36,18 +36,6 @@ FFmpegPacket::FFmpegPacket(AVPacket *packet)
 }
 
 
-FFmpegPacket::FFmpegPacket(const FFmpegPacket &other)
-{
-    free();
-
-    m_packet = av_packet_clone(other.m_packet);
-    if (nullptr == m_packet) {
-        SPDLOG_ERROR("av_packet_clone error");
-    }
-    m_need_more = other.m_need_more;
-}
-
-
 FFmpegPacket::FFmpegPacket(FFmpegPacket &&other) noexcept
     : m_packet(other.m_packet)
     , m_need_more(other.m_need_more)
@@ -114,18 +102,6 @@ FFmpegFrame::FFmpegFrame(AVFrame *frame)
     : m_frame(frame)
     , m_need_more(false)
 {
-}
-
-
-FFmpegFrame::FFmpegFrame(const FFmpegFrame &other)
-{
-    free();
-
-    m_frame = av_frame_clone(other.m_frame);
-    if (nullptr == m_frame) {
-        SPDLOG_ERROR("av_frame_clone error");
-    }
-    m_need_more = other.m_need_more;
 }
 
 
@@ -248,35 +224,6 @@ FFmpegCodec::FFmpegCodec(std::string encoder_name, std::string decoder_name)
         else {
             SPDLOG_ERROR("avcodec_find_decoder_by_name error, decoder_name: {}", decoder_name);
         }
-    }
-
-    free();
-}
-
-
-FFmpegCodec::FFmpegCodec(const FFmpegCodec &other)
-    : m_codec(nullptr)
-    , m_type(CodecType::Uninitialized)
-{
-    free();
-
-    if (other.m_type == CodecType::Encoder) {
-        m_codec = (AVCodec *)avcodec_find_encoder(other.m_codec->id);
-        if (nullptr == m_codec) {
-            SPDLOG_ERROR("avcodec_find_encoder error, id: {}", (int)other.m_codec->id);
-        }
-    }
-    else if (other.m_type == CodecType::Decoder) {
-        m_codec = (AVCodec *)avcodec_find_decoder(other.m_codec->id);
-        if (nullptr == m_codec) {
-            SPDLOG_ERROR("avcodec_find_decoder error, id: {}", (int)other.m_codec->id);
-        }
-    }
-
-    if (m_codec != nullptr) {
-        m_type = other.m_type;
-        m_codec_name = other.m_codec_name;
-        return;
     }
 
     free();
@@ -413,18 +360,6 @@ FFmpegCodecContext::FFmpegCodecContext(std::string encoder_name, std::string dec
     } while (false);
 
     free();
-}
-
-
-FFmpegCodecContext::FFmpegCodecContext(const FFmpegCodecContext &other)
-{
-    free();
-
-    m_codec = other.m_codec;
-    m_codec_context = other.m_codec_context;
-    m_pixel_format = other.m_pixel_format;
-    m_hw_device_type = other.m_hw_device_type;
-    m_hw_device_context = other.m_hw_device_context;
 }
 
 

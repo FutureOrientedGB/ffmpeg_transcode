@@ -20,7 +20,7 @@ class FFmpegPacket {
 public:
     FFmpegPacket();
     FFmpegPacket(AVPacket *packet);
-    FFmpegPacket(const FFmpegPacket &other);
+    FFmpegPacket(const FFmpegPacket &other) = delete;
     FFmpegPacket(FFmpegPacket &&other) noexcept;
     ~FFmpegPacket();
 
@@ -43,7 +43,7 @@ class FFmpegFrame {
 public:
     FFmpegFrame();
     FFmpegFrame(AVFrame *frame);
-    FFmpegFrame(const FFmpegFrame &other);
+    FFmpegFrame(const FFmpegFrame &other) = delete;
     FFmpegFrame(FFmpegFrame &&other) noexcept;
     ~FFmpegFrame();
 
@@ -73,7 +73,7 @@ public:
     FFmpegCodec();
     FFmpegCodec(int encoder_id, int decoder_id);
     FFmpegCodec(std::string encoder_name, std::string decoder_name);
-    FFmpegCodec(const FFmpegCodec &other);
+    FFmpegCodec(const FFmpegCodec &other) = delete;
     FFmpegCodec(FFmpegCodec &&other) noexcept;
     ~FFmpegCodec();
 
@@ -96,7 +96,7 @@ class FFmpegCodecContext {
 public:
     FFmpegCodecContext(int encoder_id, int decoder_id, int pixel_format = 0);
     FFmpegCodecContext(std::string encoder_name, std::string codec_name, int pixel_format = 0);
-    FFmpegCodecContext(const FFmpegCodecContext &other);
+    FFmpegCodecContext(const FFmpegCodecContext &other) = delete;
     FFmpegCodecContext(FFmpegCodecContext &&other) noexcept;
     ~FFmpegCodecContext();
 
