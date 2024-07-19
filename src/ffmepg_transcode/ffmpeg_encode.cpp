@@ -66,6 +66,7 @@ bool FFmpegEncode::setup(AVBufferRef *hw_frames_context) {
             if (code < 0) {
                 SPDLOG_ERROR("av_opt_set(preset, ultrafast) error, code: {}, msg: {}, m_encoder_name: {}", code, ffmpeg_error_str(code), m_codec_name);
             }
+
             code = av_opt_set(m_codec_context->raw_ptr()->priv_data, "tune", "zerolatency", 0);
             if (code < 0) {
                 SPDLOG_ERROR("av_opt_set(tune, zerolatency) error, code: {}, msg: {}, m_encoder_name: {}", code, ffmpeg_error_str(code), m_codec_name);
@@ -89,7 +90,25 @@ bool FFmpegEncode::setup(AVBufferRef *hw_frames_context) {
             }
         }
         else if (endswith(m_codec_name, "_nvenc")) {
+            code = av_opt_set(m_codec_context->raw_ptr()->priv_data, "preset", "ll", 0);
+            if (code < 0) {
+                SPDLOG_ERROR("av_opt_set(preset, ll) error, code: {}, msg: {}, m_encoder_name: {}", code, ffmpeg_error_str(code), m_codec_name);
+            }
 
+            code = av_opt_set(m_codec_context->raw_ptr()->priv_data, "tune", "ll", 0);
+            if (code < 0) {
+                SPDLOG_ERROR("av_opt_set(tune, ll) error, code: {}, msg: {}, m_encoder_name: {}", code, ffmpeg_error_str(code), m_codec_name);
+            }
+
+            code = av_opt_set(m_codec_context->raw_ptr()->priv_data, "zerolatency", "1", 0);
+            if (code < 0) {
+                SPDLOG_ERROR("av_opt_set(zerolatency, 1) error, code: {}, msg: {}, m_encoder_name: {}", code, ffmpeg_error_str(code), m_codec_name);
+            }
+
+            code = av_opt_set(m_codec_context->raw_ptr()->priv_data, "delay", "0", 0);
+            if (code < 0) {
+                SPDLOG_ERROR("av_opt_set(delay, 0) error, code: {}, msg: {}, m_encoder_name: {}", code, ffmpeg_error_str(code), m_codec_name);
+            }
         }
         else if (endswith(m_codec_name, "_amf")) {
 

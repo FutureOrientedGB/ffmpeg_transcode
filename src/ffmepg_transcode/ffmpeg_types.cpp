@@ -314,6 +314,8 @@ void FFmpegCodecContext::init(std::string codec_name, int pixel_format)
             break;
         }
 
+        m_codec_context->flags |= AV_CODEC_FLAG_LOW_DELAY;
+
         m_codec_context->opaque = this;
         if (m_hw_device_type > 0) {
             m_codec_context->hw_device_ctx = av_buffer_ref(m_hw_device_context);
@@ -405,7 +407,10 @@ void FFmpegCodecContext::free()
             av_buffer_unref(&m_hw_device_context);
         }
 
-        avcodec_close(m_codec_context);
+        // @deprecated (ffmpeg 7.0+)
+        // Do not use this function.
+        // Use avcodec_free_context() to destroy acodec context (either open or closed).
+        //avcodec_close(m_codec_context);
         avcodec_free_context(&m_codec_context);
     }
 
