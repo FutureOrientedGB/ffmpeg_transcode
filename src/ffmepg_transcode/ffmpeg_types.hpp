@@ -22,7 +22,7 @@ public:
     FFmpegPacket(AVPacket *packet);
     FFmpegPacket(const FFmpegPacket &other) = delete;
     FFmpegPacket(FFmpegPacket &&other) noexcept;
-    ~FFmpegPacket();
+    virtual ~FFmpegPacket();
 
     void free();
 
@@ -45,7 +45,7 @@ public:
     FFmpegFrame(AVFrame *frame);
     FFmpegFrame(const FFmpegFrame &other) = delete;
     FFmpegFrame(FFmpegFrame &&other) noexcept;
-    ~FFmpegFrame();
+    virtual ~FFmpegFrame();
 
     void free();
 
@@ -64,18 +64,14 @@ private:
 
 class FFmpegCodec {
 public:
-    enum class CodecType : uint8_t {
-        Uninitialized,
-        Encoder,
-        Decoder,
-    };
-
-    FFmpegCodec();
-    FFmpegCodec(int encoder_id, int decoder_id);
-    FFmpegCodec(std::string encoder_name, std::string decoder_name);
+    FFmpegCodec() = delete;
+    FFmpegCodec(std::string codec_name);
     FFmpegCodec(const FFmpegCodec &other) = delete;
     FFmpegCodec(FFmpegCodec &&other) noexcept;
     ~FFmpegCodec();
+
+    void init(std::string codec_name);
+    virtual bool find(std::string codec_name) = 0;
 
     void free();
 
@@ -85,20 +81,40 @@ public:
     std::string codec_name();
 
 
-private:
+protected:
     AVCodec *m_codec;
-    CodecType m_type;
     std::string m_codec_name;
+};
+
+
+class FFmpegEncoder : public FFmpegCodec {
+public:
+    FFmpegEncoder() = delete;
+    FFmpegEncoder(std::string codec_name);
+
+    virtual bool find(std::string codec_name) override;
+};
+
+
+class FFmpegDecoder : public FFmpegCodec {
+public:
+    FFmpegDecoder() = delete;
+    FFmpegDecoder(std::string codec_name);
+
+    virtual bool find(std::string codec_name) override;
 };
 
 
 class FFmpegCodecContext {
 public:
-    FFmpegCodecContext(int encoder_id, int decoder_id, int pixel_format = 0);
-    FFmpegCodecContext(std::string encoder_name, std::string codec_name, int pixel_format = 0);
+    FFmpegCodecContext() = delete;
+    FFmpegCodecContext(std::string codec_name, int pixel_format = 0);
     FFmpegCodecContext(const FFmpegCodecContext &other) = delete;
     FFmpegCodecContext(FFmpegCodecContext &&other) noexcept;
-    ~FFmpegCodecContext();
+    virtual ~FFmpegCodecContext();
+
+    void init(std::string codec_name, int pixel_format);
+    virtual bool new_codec(std::string codec_name) = 0;
 
     bool auto_hw_accel();
 
@@ -116,12 +132,33 @@ public:
     std::pair<int, int> time_base();
 
 
-private:
+protected:
     FFmpegCodec *m_codec;
     AVCodecContext *m_codec_context;
+    int m_codec_id;
+    std::string m_codec_name;
 
     int m_pixel_format;
     int m_hw_device_type;
     AVBufferRef *m_hw_device_context;
+};
+
+
+
+class FFmpegEncoderContext : public FFmpegCodecContext {
+public:
+    FFmpegEncoderContext() = delete;
+    FFmpegEncoderContext(std::string codec_name, int pixel_format = 0);
+
+    virtual bool new_codec(std::string codec_name) override;
+};
+
+
+class FFmpegDecoderContext : public FFmpegCodecContext {
+public:
+    FFmpegDecoderContext() = delete;
+    FFmpegDecoderContext(std::string codec_name, int pixel_format = 0);
+
+    virtual bool new_codec(std::string codec_name) override;
 };
 

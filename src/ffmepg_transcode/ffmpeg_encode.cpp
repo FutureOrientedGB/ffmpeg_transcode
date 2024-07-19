@@ -35,7 +35,7 @@ FFmpegEncode::~FFmpegEncode()
 
 bool FFmpegEncode::setup() {
 	do {
-		m_codec_context = new FFmpegCodecContext(m_codec_name, "", m_pixel_format);
+		m_codec_context = (FFmpegCodecContext *)new FFmpegEncoderContext(m_codec_name, m_pixel_format);
 		if (m_codec_context->is_null()) {
 			break;
 		}
