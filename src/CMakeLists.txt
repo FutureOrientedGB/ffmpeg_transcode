@@ -1,30 +1,107 @@
 cmake_minimum_required(VERSION 3.20)
 
 
-# project
-project(ffmepg_transcode)
+set(PROJECT_NAME transcode)
 
 
+project(${PROJECT_NAME})
 
-# msvc
+
+# find zlib
+find_package(ZLIB REQUIRED)
+
+# find fmt
+find_package(fmt CONFIG REQUIRED)
+
+# find spdlog
+find_package(spdlog CONFIG REQUIRED)
+
+# find ffmpeg
+find_package(FFMPEG REQUIRED)
+
+# find cli11
+find_package(CLI11 CONFIG REQUIRED)
+
+
+# defines
+ADD_DEFINITIONS(-DUNICODE -D_UNICODE)
+ADD_DEFINITIONS(-DVC_EXTRALEAN)
+ADD_DEFINITIONS(-DWIN32_LEAN_AND_MEAN)
+
+
+# classify filters
+FILE(GLOB_RECURSE HEADER_FILES
+        "*.hpp"
+)
+FILE(GLOB_RECURSE SOURCE_FILES
+        "*.cpp"
+)
+SOURCE_GROUP("Header Files" FILES ${HEADER_FILES})
+SOURCE_GROUP("Source Files" FILES ${SRC_FILES})
+
+
+# executable
+add_executable(${PROJECT_NAME}
+        WIN32
+        ${HEADER_FILES}
+        ${SOURCE_FILES}
+)
+
+
+# output dir
+set_target_properties(
+    ${PROJECT_NAME}
+    PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY $ENV{OUTPUT_EXE_DIR}
+)
+
+
+# Visual Studio - Properity - Linker - System - SubSystem > Console
 if(MSVC)
-    # utf-8 source code encoding
-    add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
-    add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
-
-    # Visual Stuido - Properity - C/C++ - General - Debug Informat Format > Program Database (/Zi) 
-    set(CMAKE_CXX_FLAGS_DEBUUG "${CMAKE_CXX_FLAGS_DEBUG} /Zi /Od")  # Disable Optimization
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /Zi /O1")  # Favor Size
-
-    # Visual Stuido - Properity - Linker - Debugging - Generate Debug Info > Generate Debug Information (/Debug)
-    set(CMAKE_EXE_LINKER_FLAGS_DEBUUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} /DEBUG /OPT:REF /OPT:ICF")
-    set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /DEBUG /OPT:REF /OPT:ICF")
-
-    # Visual Stuido - Properity - Linker - Debugging - Generate Debug Info > Generate Debug Information (/Debug)
-    set(CMAKE_SHARED_LINKER_FLAGS_DEBUUG "${CMAKE_SHARED_LINKER_FLAGS_DEBUG} /DEBUG /OPT:REF /OPT:ICF")
-    set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} /DEBUG /OPT:REF /OPT:ICF")
+set_target_properties(
+        ${PROJECT_NAME}
+        PROPERTIES
+        LINK_FLAGS "/SUBSYSTEM:CONSOLE"
+)
 endif(MSVC)
 
 
-# projects
-add_subdirectory(ffmepg_transcode)
+# Visual Studio - Properity - C/C++ - Code Generation - Rutime Library > /MT
+if(MSVC)
+set_target_properties(
+    ${PROJECT_NAME}
+    PROPERTIES
+    MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
+)
+endif(MSVC)
+
+
+# Visual Studio - Properity - C/C++ - General - Additional Include Directories
+target_include_directories(
+        ${PROJECT_NAME}
+        PRIVATE
+        $ENV{FFMPEG_INCLUDE_DIRS}
+)
+
+
+# Visual Stuido - Properify - Linker - General - Additional Library Directories
+link_directories(
+        ${PROJECT_NAME}
+        PRIVATE
+        $ENV{FFMPEG_LIBRARY_DIRS}
+)
+
+
+# Visual Studio - Properity - C/C++ - General - Additional Link Libraries
+target_link_libraries(
+        ${PROJECT_NAME}
+        PRIVATE
+        # fmt
+        fmt::fmt
+        # spdlog
+        spdlog::spdlog
+        # cli11
+        CLI11::CLI11
+        # ffmpeg
+        ${FFMPEG_LIBRARIES}
+)

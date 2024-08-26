@@ -29,6 +29,7 @@ extern "C" {
 // fmt
 #include <fmt/core.h>
 #include <fmt/format.h>
+#include <fmt/ranges.h>
 
 // spdlog
 #include <spdlog/spdlog.h>
