@@ -5,10 +5,6 @@ cmake_minimum_required(VERSION 3.20)
 project(ffmpeg_transcode)
 
 
-# set envs
-set(ENV{OUTPUT_EXE_DIR} "${CMAKE_SOURCE_DIR}/project/output/${CMAKE_SYSTEM_NAME}/${CMAKE_SYSTEM_PROCESSOR}")
-
-
 # msvc
 if(MSVC)
     # utf-8 source code encoding

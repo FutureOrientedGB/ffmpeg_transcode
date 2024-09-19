@@ -48,14 +48,6 @@ add_executable(${PROJECT_NAME}
 )
 
 
-# output dir
-set_target_properties(
-    ${PROJECT_NAME}
-    PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY $ENV{OUTPUT_EXE_DIR}
-)
-
-
 # Visual Studio - Properity - Linker - System - SubSystem > Console
 if(MSVC)
 set_target_properties(
