@@ -1,6 +1,6 @@
-# FFmpeg 7.0.1 x86\_64 转码性能测试报告
+# FFmpeg 7 x86_64 Transcoding Performance Test Report
 
-# 一、FFmpeg信息
+## 1. FFmpeg Information
 
     # ffmpeg -version
     ffmpeg version 7.0.1 Copyright (c) 2000-2024 the FFmpeg developers
@@ -15,42 +15,45 @@
     libswresample   5.  1.100 /  5.  1.100
     libpostproc    58.  1.100 / 58.  1.100
 
-# 二、CPU信息
+## 2. CPU Information
 
-|  CPU品牌  |  CPU型号  |  CPU主频  |  CPU颗数  |  单个CPU线程数  |  总线程数  |
-| --- | --- | --- | --- | --- | --- |
+| CPU Brand | CPU Model          | CPU Frequency | CPU Cores | Threads per CPU | Total Threads |
+|-----------|--------------------|---------------|-----------|------------------|---------------|
 |  Intel  |  **Xeon Gold 5218R**  |  2.1GHz  |  2  |  40  |  **80**  |
 
-# 三、输入视频信息
+## 3. Input Video Information
 
-|  分辨率  |  帧率  |  码率  |  编码格式  |
+| Resolution | Frame Rate | Bitrate | Codec   |
 | --- | --- | --- | --- |
 |  1080P  |  25  |  **4M**  |  **H.264**  |
 |  1080P  |  25  |  **3M**  |  **H.265**  |
 
-# 四、tmpfs 4KiB读写性能
+## 4. tmpfs 4KiB Read/Write Performance
 
-为了避免遇到磁盘IO或者网络IO瓶颈，我们使用内存盘来作为转码输入输出，而tmpfs 4K读写性能为3.GB/秒，1.9GB/秒，满足我们最大400MB/秒的读写要求
+To avoid disk IO or network IO bottlenecks, we used a RAM disk for transcoding input and output. The tmpfs 4K read/write performance was 3.GB/s for read and 1.9GB/s for write, meeting our maximum requirement of 400MB/s.
 
     # df -h | grep "/tmp"
     tmpfs                    6.0G  3.9G  2.2G   64% /tmp
-    # dd if=/tmp/testfile of=/dev/null bs=4K count=10000000
-    记录了1000000+0 的读入
-    记录了1000000+0 的写出
-    4096000000字节(4.1 GB)已复制，1.15974 秒，3.5 GB/秒
-    # dd if=/dev/zero of=/tmp/testfile bs=4K count=10000000
-    dd: 写入"/tmp/testfile" 出错: 设备上没有空间
-    记录了1572848+0 的读入
-    记录了1572847+0 的写出
-    6442381312字节(6.4 GB)已复制，3.32676 秒，1.9 GB/秒
 
-# 五、FFmpeg Cli测试结果
+    dd if=/tmp/testfile of=/dev/null bs=4K count=10000000
+    1000000+0 records in
+    1000000+0 records out
+    4096000000 bytes (4.1 GB) copied, 1.15974 seconds, 3.5 GB/s
 
-x10为10进程，x20为20进程，-re x50为固定解码帧率50进程
+    dd if=/dev/zero of=/tmp/testfile bs=4K count=10000000
+    dd: error writing '/tmp/testfile': No space left on device
+    1572848+0 records in
+    1572847+0 records out
+    6442381312 bytes (6.4 GB) copied, 3.32676 seconds, 1.9 GB/s
 
-转码命令行示例 docker run -it -v /tmp:/media linuxserver/ffmpeg -nostdin -re -threads 1 -i /media/1080p.25fps.3M.265 -vf scale=720:480 -filter\_threads 1 -threads 1 -c:v libx264 -b:v 1M -bf 0 -g 50 -preset ultrafast -tune zerolatency -f h264 /media/outputs/d1\_1.25fps.1M.264
+## 5. FFmpeg CLI Test Results
 
-|  输入视频编码  |  输出视频分辨率  |  输出视频帧率  |  输出视频码率  |  输出视频编码  |  转码路数  |  CPU占用  |  内存占用  |
+x10 represents 10 processes, x20 represents 20 processes, and -re x50 represents a fixed decoding frame rate with 50 processes.
+
+    # Transcoding Command Example
+    docker run -it -v /tmp:/media linuxserver/ffmpeg -nostdin -re -threads 1 -i /media/1080p.25fps.3M.265 -vf scale=720:480 -filter\_threads 1 -threads 1 -c:v libx264 -b:v 1M -bf 0 -g 50 -preset ultrafast -tune zerolatency -f h264 /media/outputs/d1\_1.25fps.1M.264
+
+| Input Video Codec | Output Video Resolution | Output Video Frame Rate | Output Video Bitrate | Output Video Codec | Transcoding Paths | CPU Usage | Memory Usage |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 |  H.264  |  D1  |  25  |  1M  |  H.264  |  **x10: 38** x20: 35 \-re x50: 37  |  x10: 80% x20: 99% \-re x50: 100%  |  x10: 3.2G x20: 5.5G \-re x50: 7.7G  |
 |  H.264  |  CIF  |  25  |  128K  |  H.264  |
@@ -68,33 +71,35 @@ x10为10进程，x20为20进程，-re x50为固定解码帧率50进程
 |  H.265  |  FULL HD  |  25  |  74M  |  I420  |  x10: 61 **x20: 62** \-re x50:50   |  x10: 65% x20: 90% \-re x50: 43%  |  x10: 2.9G x20: 5.1G \-re x50: 5.6G  |
 
 
-# 六、libavcodec 转码负载性能
+## 6. libavcodec Transcoding Load Performance
 
-以下测量值40线程下的90%分位数
+The following measurements show the 90th percentile under a load of 40 threads.
 
-|  负载  |  编码格式  |  输入分辨率  |  输出格式  |  输出分辨率  |  耗时  |
-| --- | --- | --- | --- | --- | --- |
-|  解码  |  H.264  |  1080P  |  YUV420P  |  1080P  |  23 ms / 帧  |
-|  解码  |  H.265  |  1080P  |  YUV420P  |  1080P  |  27 ms / 帧  |
-|   |   |   |   |   |   |
-|  缩放  |  YUV420P  |  1080P  |  YUV420P  |  D1  |  6 ms / 帧  |
-|  缩放  |  YUV420P  |  1080P  |  YUV420P  |  CIF  |  4 ms / 帧  |
-|   |   |   |   |   |   |
-|  编码  |  YUV420P  |  D1  |  H.264  |  D1  |  2.39 ms / 帧  |
-|  编码  |  YUV420P  |  CIF  |  H.264  |  CIF  |  1.02 ms / 帧  |
-|   |   |   |   |   |   |
-|  编码  |  YUV420P  |  D1  |  H.265  |  D1  |  30.86 ms / 帧  |
-|  编码  |  YUV420P  |  CIF  |  H.265  |  CIF  |  14.67 ms / 帧  |
+| Load     | Codec   | Input Resolution | Output Format | Output Resolution | Time        |
+|----------|---------|------------------|---------------|-------------------|-------------|
+| Decoding | H.264   | 1080P           | YUV420P       | 1080P             | 23 ms/frame |
+| Decoding | H.265   | 1080P           | YUV420P       | 1080P             | 27 ms/frame |
+|          |         |                  |               |                   |             |
+| Scaling  | YUV420P | 1080P           | YUV420P       | D1                | 6 ms/frame  |
+| Scaling  | YUV420P | 1080P           | YUV420P       | CIF               | 4 ms/frame  |
+|          |         |                  |               |                   |             |
+| Encoding | YUV420P | D1              | H.264         | D1                | 2.39 ms/frame |
+| Encoding | YUV420P | CIF             | H.264         | CIF               | 1.02 ms/frame |
+|          |         |                  |               |                   |             |
+| Encoding | YUV420P | D1              | H.265         | D1                | 30.86 ms/frame |
+| Encoding | YUV420P | CIF             | H.265         | CIF               | 14.67 ms/frame |
 
-# 七、libavcodec 测试结果
 
-以下测量值40线程下的90%分位数
 
-比ffmpeg cli测试结果稍好，应该是因为这里将视频帧提前读进std::vector，编码结果直接丢弃
+## 7. libavcodec Test Results
 
-CPU与MEM内存与ffmpeg cli并无区别，这里就不赘叙了
+The following measurements show the 90th percentile under a load of 40 threads.
 
-|  输入视频编码  |  输出视频分辨率  |  输出视频帧率  |  输出视频码率  |  输出视频编码  |  转码路数  |
+The results are slightly better than the FFmpeg CLI tests, likely because the video frames are pre-read into `std::vector`, and the encoding results are discarded directly.
+
+CPU and memory usage are consistent with the FFmpeg CLI, so they will not be elaborated here.
+
+| Input Video Codec | Output Video Resolution | Output Video Frame Rate | Output Video Bitrate | Output Video Codec | Transcoding Paths |
 | --- | --- | --- | --- | --- | --- |
 |  H.264  |  FULL HD  |  25  |  74M  |  YUV420P  |  **152**  |
 |  H.265  |  FULL HD  |  25  |  74M  |  YUV420P  |  **86**  |
